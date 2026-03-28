@@ -1,4 +1,5 @@
 import User from "../models/user.js";
+import bcrypt from "bcryptjs";
 
 export const loginUser = async (req, res) => {
   try {
@@ -11,7 +12,10 @@ export const loginUser = async (req, res) => {
         message: "User Not Found",
       });
     }
-    const isMatch = (await User.password) === password;
+    // compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    // const isMatch = (await User.password) === password;
     if (!isMatch) {
       return res.status(400).json({
         message: "Invalid Password",
