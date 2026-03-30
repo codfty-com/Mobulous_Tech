@@ -9,10 +9,11 @@ dotenv.config();
 
 const app = express();
 
-// ✅ Middleware
-app.use(express.json());
+// ✅ FIX 1: Proper Body Parsers (prevents request size mismatch error)
+app.use(express.json({ limit: "10mb", strict: false }));
+app.use(express.urlencoded({ extended: true }));
 
-// ✅ DB Connection Middleware (SAFE for Vercel)
+// ✅ FIX 2: DB Connection Middleware (with proper error handling)
 app.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -35,11 +36,28 @@ app.get("/", (req, res) => {
   res.status(200).send("🚀 API is running on Vercel");
 });
 
-// ❌ DO NOT USE app.listen()
+// ✅ FIX 3: Handle unknown routes (prevents hanging requests)
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
+});
 
-// ✅ Global Error Handler (VERY IMPORTANT)
+// ✅ FIX 4: Global Error Handler (VERY IMPORTANT)
 app.use((err, req, res, next) => {
   console.error("Global Error:", err);
+
+  // Handle body parser error specifically
+  if (
+    err.type === "entity.parse.failed" ||
+    err.type === "request.size.invalid"
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid request body or size mismatch",
+    });
+  }
 
   res.status(500).json({
     success: false,
