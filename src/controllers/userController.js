@@ -1,38 +1,71 @@
 import User from "../models/user.js";
 import bcrypt from "bcryptjs";
 
-//create new user
+// ✅ Create new user
 export const createUser = async (req, res) => {
   try {
-    const { name, email, phone, password } = req.body;
-    // hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    console.log("👉 Incoming signup request");
 
-    const user = new User({
+    const { name, email, phone, password } = req.body;
+
+    // ✅ Validation
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email and password are required",
+      });
+    }
+
+    // ✅ Check existing user
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "User already exists",
+      });
+    }
+
+    // ✅ Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // ✅ Create user
+    const user = await User.create({
       name,
       email,
       phone,
       password: hashedPassword,
     });
-    const savedUser = await user.save();
-    res.status(201).json({
+
+    return res.status(201).json({
+      success: true,
       message: "User created successfully",
-      data: savedUser,
+      data: user,
     });
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
+    console.error("❌ Signup Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
-    console.log(error, "something went wrong");
   }
 };
 
-//get all users
-
+// ✅ Get all users
 export const getAllusers = async (req, res) => {
   try {
-    const getuser = await User.find();
-    res.status(201).json(getuser);
-  } catch (error) {}
+    const users = await User.find();
+
+    return res.status(200).json({
+      success: true,
+      data: users,
+    });
+  } catch (error) {
+    console.error("❌ Get Users Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 };

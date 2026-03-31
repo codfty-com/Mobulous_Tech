@@ -9,34 +9,23 @@ dotenv.config();
 
 const app = express();
 
-// ✅ FIX 1: Proper Body Parsers (prevents request size mismatch error)
-app.use(express.json({ limit: "10mb", strict: false }));
+// ✅ Body parsers
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ FIX 2: DB Connection Middleware (with proper error handling)
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    console.error("DB Connection Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Database connection failed",
-    });
-  }
-});
+// ✅ Connect DB ONCE
+connectDB();
 
 // ✅ Routes
 app.use("/api", userRoutes);
 app.use("/api", resetPassRoutes);
 
-// ✅ Health Check Route
+// ✅ Health check
 app.get("/", (req, res) => {
   res.status(200).send("🚀 API is running on Vercel");
 });
 
-// ✅ FIX 3: Handle unknown routes (prevents hanging requests)
+// ✅ 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -44,20 +33,9 @@ app.use((req, res) => {
   });
 });
 
-// ✅ FIX 4: Global Error Handler (VERY IMPORTANT)
+// ✅ Global error handler
 app.use((err, req, res, next) => {
   console.error("Global Error:", err);
-
-  // Handle body parser error specifically
-  if (
-    err.type === "entity.parse.failed" ||
-    err.type === "request.size.invalid"
-  ) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid request body or size mismatch",
-    });
-  }
 
   res.status(500).json({
     success: false,
