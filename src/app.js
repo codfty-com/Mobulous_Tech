@@ -13,8 +13,17 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Connect DB ONCE
-connectDB();
+const dbPromise = connectDB();
+
+// ✅ Middleware to ensure DB is connected before processing requests
+app.use(async (req, res, next) => {
+  try {
+    await dbPromise;
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ✅ Routes
 app.use("/api", userRoutes);
