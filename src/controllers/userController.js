@@ -4,6 +4,7 @@ import { randomInt } from "crypto";
 import { sendEmail } from "../utils/sendEmail.js";
 
 const OTP_EXPIRY_MINUTES = 5;
+const LOGIN_REDIRECT_URL = process.env.LOGIN_REDIRECT_URL || "/login";
 
 const generateOtp = () => randomInt(100000, 1000000).toString();
 
@@ -18,6 +19,21 @@ const sendSignupOtpEmail = async (email, otp) => {
     "OTP for Signup Verification",
     `Your signup OTP is ${otp}. It is valid for ${OTP_EXPIRY_MINUTES} minutes.`,
   );
+};
+
+const shouldRedirectToLogin = (req) =>
+  req.query?.redirect === "true" || req.get("accept")?.includes("text/html");
+
+const sendSignupOtpSuccess = (req, res, message) => {
+  if (shouldRedirectToLogin(req)) {
+    return res.redirect(303, LOGIN_REDIRECT_URL);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message,
+    redirectTo: LOGIN_REDIRECT_URL,
+  });
 };
 
 export const createUser = async (req, res) => {
@@ -118,11 +134,11 @@ export const verifySignupOtp = async (req, res) => {
     }
 
     if (user.isEmailVerified) {
-      return res.status(200).json({
-        success: true,
-        message: "Email already verified. Please login.",
-        redirectTo: "/login",
-      });
+      return sendSignupOtpSuccess(
+        req,
+        res,
+        "Email already verified. Please login.",
+      );
     }
 
     if (!user.otp || user.otp !== otp) {
@@ -145,11 +161,11 @@ export const verifySignupOtp = async (req, res) => {
 
     await user.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "Email verified successfully. Please login.",
-      redirectTo: "/login",
-    });
+    return sendSignupOtpSuccess(
+      req,
+      res,
+      "Email verified successfully. Please login.",
+    );
   } catch (error) {
     console.error("Signup OTP Verify Error:", error);
 

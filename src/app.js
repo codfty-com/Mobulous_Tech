@@ -10,6 +10,19 @@ dotenv.config();
 
 const app = express();
 
+const trimTrailingPathWhitespace = (url) => {
+  const queryStart = url.indexOf("?");
+  const pathname = queryStart === -1 ? url : url.slice(0, queryStart);
+  const query = queryStart === -1 ? "" : url.slice(queryStart);
+
+  return `${pathname.replace(/(?:%0A|%0D|%09|%20|\s)+$/gi, "")}${query}`;
+};
+
+app.use((req, res, next) => {
+  req.url = trimTrailingPathWhitespace(req.url);
+  next();
+});
+
 // ✅ CORS - must be before body parsers
 app.use(cors());
 
