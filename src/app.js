@@ -56,6 +56,8 @@ app.use(async (req, res, next) => {
 // ✅ Routes
 app.use("/api", userRoutes);
 app.use("/api", resetPassRoutes);
+app.use("/", userRoutes);
+app.use("/", resetPassRoutes);
 
 // ✅ Health check
 app.get("/", (req, res) => {
