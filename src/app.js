@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import cors from "cors";
 
 import connectDB from "./config/db.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -9,9 +10,36 @@ dotenv.config();
 
 const app = express();
 
+// ✅ CORS - must be before body parsers
+app.use(cors());
+
 // ✅ Body parsers
-app.use(express.json());
+app.use(express.json({ strict: false }));
 app.use(express.urlencoded({ extended: true }));
+
+// ✅ Fallback: parse raw body as JSON if Content-Type header was missing
+app.use((req, res, next) => {
+  if (req.body !== undefined) return next(); // already parsed
+
+  const method = req.method;
+  if (method !== "POST" && method !== "PUT" && method !== "PATCH") return next();
+
+  let raw = "";
+  req.setEncoding("utf8");
+  req.on("data", (chunk) => { raw += chunk; });
+  req.on("end", () => {
+    if (raw) {
+      try {
+        req.body = JSON.parse(raw);
+      } catch {
+        req.body = {};
+      }
+    } else {
+      req.body = {};
+    }
+    next();
+  });
+});
 
 const dbPromise = connectDB();
 

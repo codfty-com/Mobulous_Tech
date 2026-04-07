@@ -10,6 +10,10 @@ const userSchema = new mongoose.Schema(
     },
     password: String,
     phone: Number,
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
     otp: String,
     otpExpiry: Date,
   },
