@@ -1,10 +1,10 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-
 import connectDB from "./config/db.js";
 import userRoutes from "./routes/userRoutes.js";
 import resetPassRoutes from "./routes/resetPassRoutes.js";
+import marketDataRoutes from "./routes/marketDataRoutes.js";
 
 dotenv.config();
 
@@ -35,11 +35,14 @@ app.use((req, res, next) => {
   if (req.body !== undefined) return next(); // already parsed
 
   const method = req.method;
-  if (method !== "POST" && method !== "PUT" && method !== "PATCH") return next();
+  if (method !== "POST" && method !== "PUT" && method !== "PATCH")
+    return next();
 
   let raw = "";
   req.setEncoding("utf8");
-  req.on("data", (chunk) => { raw += chunk; });
+  req.on("data", (chunk) => {
+    raw += chunk;
+  });
   req.on("end", () => {
     if (raw) {
       try {
@@ -69,8 +72,7 @@ app.use(async (req, res, next) => {
 // ✅ Routes
 app.use("/api", userRoutes);
 app.use("/api", resetPassRoutes);
-app.use("/", userRoutes);
-app.use("/", resetPassRoutes);
+app.use("/api", marketDataRoutes);
 
 // ✅ Health check
 app.get("/", (req, res) => {
