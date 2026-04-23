@@ -1,0 +1,17 @@
+$kind: http-request
+url: http://localhost:8000/api/auth/signup
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"name\": \"kkk\",\r
+
+    \  \"mobile\": \"777888956\",\r
+
+    \  \"emailid\": \"singhkunal22@gmail.com\",\r
+
+    \  \"password\": \"Test@123\"\r
+
+    }"
+order: 4000

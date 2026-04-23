@@ -1,0 +1,13 @@
+$kind: http-request
+url: https://mobulous-tech.vercel.app/api/verify-otp
+method: POST
+body:
+  type: text
+  content: "{\r
+
+    \    \"email\": \"test999@teleworm.us\",\r
+
+    \    \"otp\": \"125290\"\r
+
+    }"
+order: 6000

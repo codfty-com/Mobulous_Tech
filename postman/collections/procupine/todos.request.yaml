@@ -1,0 +1,13 @@
+$kind: http-request
+url: http://localhost:5000/todos/signin
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"username\": \"bbbb@gmail.com\",\r
+
+    \    \"password\" : \"21651454654\"\r
+
+    }"
+order: 1000

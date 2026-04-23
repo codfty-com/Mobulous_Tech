@@ -1,0 +1,18 @@
+$kind: http-request
+name: http://localhost:8000/lmsuser/login
+url: http://localhost:5500/user
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"firstName\":\"kunal singh\",\r
+
+    \    \"lastName\": \"Rajput\",\r
+
+    \    \"gender\": \"male\",\r
+
+    \    \"email\": \"Hardik@gmail.com\"\r
+
+    }"
+order: 2000

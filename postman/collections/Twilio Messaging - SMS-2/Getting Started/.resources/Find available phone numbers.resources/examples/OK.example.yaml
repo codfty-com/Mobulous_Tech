@@ -1,0 +1,82 @@
+$kind: http-example
+request:
+  url: "{{2010-04-01-Accounts-AccountSid-AvailablePhoneNumbers-CountryCode-Local.json-Url}}/2010-04-01/Accounts/:AccountSid/AvailablePhoneNumbers/:CountryCode/Local.json?AreaCode=<integer>&Contains=<string>&SmsEnabled=<boolean>&MmsEnabled=<boolean>&VoiceEnabled=<boolean>&ExcludeAllAddressRequired=<boolean>&ExcludeLocalAddressRequired=<boolean>&ExcludeForeignAddressRequired=<boolean>&Beta=<boolean>&NearNumber=<string>&NearLatLong=<string>&Distance=<integer>&InPostalCode=<string>&InRegion=<string>&InRateCenter=<string>&InLata=<string>&InLocality=<string>&FaxEnabled=<boolean>&PageSize=<integer>"
+  method: GET
+  headers:
+    - key: Authorization
+      value: Basic <credentials>
+      description: "Added as a part of security scheme: basic"
+  queryParams:
+    AreaCode: <integer>
+    Contains: <string>
+    SmsEnabled: <boolean>
+    MmsEnabled: <boolean>
+    VoiceEnabled: <boolean>
+    ExcludeAllAddressRequired: <boolean>
+    ExcludeLocalAddressRequired: <boolean>
+    ExcludeForeignAddressRequired: <boolean>
+    Beta: <boolean>
+    NearNumber: <string>
+    NearLatLong: <string>
+    Distance: <integer>
+    InPostalCode: <string>
+    InRegion: <string>
+    InRateCenter: <string>
+    InLata: <string>
+    InLocality: <string>
+    FaxEnabled: <boolean>
+    PageSize: <integer>
+  pathVariables:
+    AccountSid: ""
+    CountryCode: ""
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+       "available_phone_numbers": [
+        {
+         "address_requirements": "aute eiusmod",
+         "beta": true,
+         "capabilities": {},
+         "friendly_name": "nisi do",
+         "iso_country": "voluptate",
+         "lata": "minim cillum",
+         "latitude": 4649799.109687477,
+         "locality": "in Duis ut anim irure",
+         "longitude": -94614168.65959848,
+         "phone_number": "amet labore",
+         "postal_code": "deserunt esse cillum ut",
+         "rate_center": "velit",
+         "region": "ipsum pariatur cupidatat dolor"
+        },
+        {
+         "address_requirements": "Ut",
+         "beta": true,
+         "capabilities": {},
+         "friendly_name": "ullamco",
+         "iso_country": "in incididunt",
+         "lata": "cillum dolor velit sed",
+         "latitude": -21235506.84035504,
+         "locality": "sint",
+         "longitude": -25668838.90140347,
+         "phone_number": "non adipisicing enim incididunt deserunt",
+         "postal_code": "ut voluptate minim",
+         "rate_center": "velit aliqua",
+         "region": "Excepteur aliquip in nisi"
+        }
+       ],
+       "end": 3504435,
+       "first_page_uri": "http://nnYdJBuOCqryvmKnbvBPBnaNMbCqrxw.tdvyHFVoZISsFUqJvqFT0cg+",
+       "next_page_uri": "http://PoqRnDNQHgsSAILsyYutOtNGDj.qqhjm8TRty6qyZnDJAQcH1Djqzpuv,w5pf+hzR.4snyBz",
+       "page": 90555719,
+       "page_size": 88924560,
+       "previous_page_uri": "https://ArZjnsEHjpSMJWeIOQAYyTOm.ispdr0ZozBph6JkyS4wCN4KsLijal5vGd-yowauXTc55dxOb",
+       "start": -60781383,
+       "uri": "http://BJmswSvlkWlnMst.fiODjnzufdg.eBwAEpkSmwiU.e-Ygm,OFGiH"
+      }
+order: 1000

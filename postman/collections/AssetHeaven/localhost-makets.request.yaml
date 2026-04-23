@@ -1,0 +1,4 @@
+$kind: http-request
+url: https://mobulous-tech.vercel.app/api/markets
+method: GET
+order: 9000

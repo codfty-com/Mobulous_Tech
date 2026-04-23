@@ -1,0 +1,15 @@
+$kind: http-request
+name: api/verify-email-otp
+url: |
+  https://mobulous-tech.vercel.app/api/verify-email-otp
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"email\": \"test999@teleworm.us\",\r
+
+    \    \"otp\": \"574826\"\r
+
+    }"
+order: 2000

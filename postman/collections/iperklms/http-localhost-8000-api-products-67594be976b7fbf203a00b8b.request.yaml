@@ -1,0 +1,20 @@
+$kind: http-request
+name: http://localhost:8000/api/products/67594be976b7fbf203a00b8b
+url: http://localhost:8000/lmsusers/payment-confirmation
+method: POST
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: kunal Singh
+    - type: text
+      key: emailid
+      value: "7774441112"
+    - type: text
+      key: mobile
+      value: ksr@gmail.cm
+    - type: file
+      key: image
+      src: postman-cloud:///1efb86fb-4e03-4d50-8359-c33771c055da
+order: 4000

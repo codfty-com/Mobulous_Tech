@@ -1,0 +1,17 @@
+$kind: http-request
+url: http://localhost:8000/lmsusers/signup
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"name\": \"Poly\",\r
+
+    \    \"mobile\": \"1234567899\",\r
+
+    \    \"emailid\": \"poly@gmail.com\",\r
+
+    \    \"password\": \"Poly@123\"\r
+
+    }"
+order: 1000

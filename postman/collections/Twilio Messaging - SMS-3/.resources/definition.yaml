@@ -1,0 +1,133 @@
+$kind: collection
+name: Twilio Messaging / SMS
+description: |-
+  Ahoy!
+
+  This Postman collection serves as a toolbelt for you to work with Twilio's [Programmable Messaging API](https://www.twilio.com/messaging).
+
+  It provides functionality to interact with a subset of the Twilio API. For a more complete view of the API, make sure to visit our [Twilio Docs](https://www.twilio.com/docs/sms).
+
+  Contact Support:
+   Name: Twilio Support
+   Email: support@twilio.com
+variables:
+  baseUrl: /
+  2010-04-01-Accounts.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Addresses.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Addresses-AddressSid-DependentPhoneNumbers.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Addresses-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Applications.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Applications-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-AuthorizedConnectApps.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-AuthorizedConnectApps-ConnectAppSid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-AvailablePhoneNumbers.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-AvailablePhoneNumbers-CountryCode.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-AvailablePhoneNumbers-CountryCode-Local.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-AvailablePhoneNumbers-CountryCode-MachineToMachine.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-AvailablePhoneNumbers-CountryCode-Mobile.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-AvailablePhoneNumbers-CountryCode-National.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-AvailablePhoneNumbers-CountryCode-SharedCost.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-AvailablePhoneNumbers-CountryCode-TollFree.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-AvailablePhoneNumbers-CountryCode-Voip.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Balance.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Calls.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Calls-FeedbackSummary.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Calls-FeedbackSummary-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Calls-CallSid-Feedback.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Calls-CallSid-Notifications.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Calls-CallSid-Notifications-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Calls-CallSid-Payments.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Calls-CallSid-Payments-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Calls-CallSid-Recordings.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Calls-CallSid-Recordings-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Calls-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Conferences.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Conferences-ConferenceSid-Participants.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Conferences-ConferenceSid-Participants-CallSid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Conferences-ConferenceSid-Recordings.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Conferences-ConferenceSid-Recordings-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Conferences-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-ConnectApps.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-ConnectApps-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-IncomingPhoneNumbers.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-IncomingPhoneNumbers-Local.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-IncomingPhoneNumbers-Mobile.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-IncomingPhoneNumbers-TollFree.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-IncomingPhoneNumbers-ResourceSid-AssignedAddOns.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-IncomingPhoneNumbers-ResourceSid-AssignedAddOns-AssignedAddOnSid-Extensions.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-IncomingPhoneNumbers-ResourceSid-AssignedAddOns-AssignedAddOnSid-Extensions-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-IncomingPhoneNumbers-ResourceSid-AssignedAddOns-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-IncomingPhoneNumbers-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Keys.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Keys-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Messages.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Messages-MessageSid-Feedback.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Messages-MessageSid-Media.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Messages-MessageSid-Media-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Messages-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Notifications.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Notifications-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-OutgoingCallerIds.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-OutgoingCallerIds-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Queues.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Queues-QueueSid-Members.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Queues-QueueSid-Members-CallSid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Queues-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Recordings.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Recordings-RecordingSid-Transcriptions.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Recordings-RecordingSid-Transcriptions-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Recordings-ReferenceSid-AddOnResults.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Recordings-ReferenceSid-AddOnResults-AddOnResultSid-Payloads.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Recordings-ReferenceSid-AddOnResults-AddOnResultSid-Payloads-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Recordings-ReferenceSid-AddOnResults-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Recordings-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-CredentialLists.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-CredentialLists-CredentialListSid-Credentials.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-CredentialLists-CredentialListSid-Credentials-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-CredentialLists-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains-DomainSid-Auth-Calls-CredentialListMappings.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains-DomainSid-Auth-Calls-CredentialListMappings-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains-DomainSid-Auth-Calls-IpAccessControlListMappings.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains-DomainSid-Auth-Calls-IpAccessControlListMappings-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains-DomainSid-Auth-Registrations-CredentialListMappings.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains-DomainSid-Auth-Registrations-CredentialListMappings-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains-DomainSid-CredentialListMappings.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains-DomainSid-CredentialListMappings-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains-DomainSid-IpAccessControlListMappings.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains-DomainSid-IpAccessControlListMappings-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-Domains-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-IpAccessControlLists.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-IpAccessControlLists-IpAccessControlListSid-IpAddresses.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-IpAccessControlLists-IpAccessControlListSid-IpAddresses-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SIP-IpAccessControlLists-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SMS-ShortCodes.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SMS-ShortCodes-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SigningKeys.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-SigningKeys-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Tokens.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Transcriptions.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Transcriptions-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Usage-Records.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Usage-Records-AllTime.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Usage-Records-Daily.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Usage-Records-LastMonth.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Usage-Records-Monthly.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Usage-Records-ThisMonth.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Usage-Records-Today.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Usage-Records-Yearly.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Usage-Records-Yesterday.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Usage-Triggers.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-AccountSid-Usage-Triggers-Sid.json-Url: https://api.twilio.com
+  2010-04-01-Accounts-Sid.json-Url: https://api.twilio.com
+  Sid: <string>
+  ConnectAppSid: <string>
+  CountryCode: <string>
+  CallSid: <string>
+auth:
+  - id: 37726a02-a9d8-49d7-b9f7-3728e329ee3d
+    type: basic
+    name: basic auth
+    credentials:
+      password: "{{TWILIO_AUTH_TOKEN}}"
+      username: "{{TWILIO_ACCOUNT_SID}}"

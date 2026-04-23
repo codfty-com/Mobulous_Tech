@@ -1,0 +1,129 @@
+$kind: http-example
+request:
+  url: "{{2010-04-01-Accounts-AccountSid-IncomingPhoneNumbers.json-Url}}/2010-04-01/Accounts/:AccountSid/IncomingPhoneNumbers.json"
+  method: POST
+  headers:
+    - key: Authorization
+      value: Basic <credentials>
+      description: "Added as a part of security scheme: basic"
+  pathVariables:
+    AccountSid: ""
+  body:
+    type: urlencoded
+    content:
+      - key: AddressSid
+        value: <string>
+        description: The SID of the Address resource we should associate with the new phone number. Some regions require addresses to meet local regulations.
+      - key: ApiVersion
+        value: <string>
+        description: The API version to use for incoming calls made to the new phone number. The default is `2010-04-01`.
+      - key: AreaCode
+        value: <string>
+        description: The desired area code for your new incoming phone number. Can be any three-digit, US or Canada area code. We will provision an available phone number within this area code for you. **You must provide an `area_code` or a `phone_number`.** (US and Canada only).
+      - key: BundleSid
+        value: <string>
+        description: The SID of the Bundle resource that you associate with the phone number. Some regions require a Bundle to meet local Regulations.
+      - key: EmergencyAddressSid
+        value: <string>
+        description: The SID of the emergency address configuration to use for emergency calling from the new phone number.
+      - key: EmergencyStatus
+        value: <string>
+        description: The configuration status parameter that determines whether the new phone number is enabled for emergency calling. (This can only be one of Active,Inactive)
+      - key: FriendlyName
+        value: <string>
+        description: A descriptive string that you created to describe the new phone number. It can be up to 64 characters long. By default, this is a formatted version of the new phone number.
+      - key: IdentitySid
+        value: <string>
+        description: The SID of the Identity resource that we should associate with the new phone number. Some regions require an identity to meet local regulations.
+      - key: PhoneNumber
+        value: <string>
+        description: The phone number to purchase specified in [E.164](https://www.twilio.com/docs/glossary/what-e164) format.  E.164 phone numbers consist of a + followed by the country code and subscriber number without punctuation characters. For example, +14155551234.
+      - key: SmsApplicationSid
+        value: <string>
+        description: The SID of the application that should handle SMS messages sent to the new phone number. If an `sms_application_sid` is present, we ignore all of the `sms_*_url` urls and use those set on the application.
+      - key: SmsFallbackMethod
+        value: <string>
+        description: "The HTTP method that we should use to call `sms_fallback_url`. Can be: `GET` or `POST` and defaults to `POST`. (This can only be one of head,get,post,patch,put,delete,HEAD,GET,POST,PATCH,PUT,DELETE)"
+      - key: SmsFallbackUrl
+        value: <uri>
+        description: The URL that we should call when an error occurs while requesting or executing the TwiML defined by `sms_url`.
+      - key: SmsMethod
+        value: <string>
+        description: "The HTTP method that we should use to call `sms_url`. Can be: `GET` or `POST` and defaults to `POST`. (This can only be one of head,get,post,patch,put,delete,HEAD,GET,POST,PATCH,PUT,DELETE)"
+      - key: SmsUrl
+        value: <uri>
+        description: The URL we should call when the new phone number receives an incoming SMS message.
+      - key: StatusCallback
+        value: <uri>
+        description: The URL we should call using the `status_callback_method` to send status information to your application.
+      - key: StatusCallbackMethod
+        value: <string>
+        description: "The HTTP method we should use to call `status_callback`. Can be: `GET` or `POST` and defaults to `POST`. (This can only be one of head,get,post,patch,put,delete,HEAD,GET,POST,PATCH,PUT,DELETE)"
+      - key: TrunkSid
+        value: <string>
+        description: The SID of the Trunk we should use to handle calls to the new phone number. If a `trunk_sid` is present, we ignore all of the voice urls and voice applications and use only those set on the Trunk. Setting a `trunk_sid` will automatically delete your `voice_application_sid` and vice versa.
+      - key: VoiceApplicationSid
+        value: <string>
+        description: The SID of the application we should use to handle calls to the new phone number. If a `voice_application_sid` is present, we ignore all of the voice urls and use only those set on the application. Setting a `voice_application_sid` will automatically delete your `trunk_sid` and vice versa.
+      - key: VoiceCallerIdLookup
+        value: <boolean>
+        description: "Whether to lookup the caller's name from the CNAM database and post it to your app. Can be: `true` or `false` and defaults to `false`."
+      - key: VoiceFallbackMethod
+        value: <string>
+        description: "The HTTP method that we should use to call `voice_fallback_url`. Can be: `GET` or `POST` and defaults to `POST`. (This can only be one of head,get,post,patch,put,delete,HEAD,GET,POST,PATCH,PUT,DELETE)"
+      - key: VoiceFallbackUrl
+        value: <uri>
+        description: The URL that we should call when an error occurs retrieving or executing the TwiML requested by `url`.
+      - key: VoiceMethod
+        value: <string>
+        description: "The HTTP method that we should use to call `voice_url`. Can be: `GET` or `POST` and defaults to `POST`. (This can only be one of head,get,post,patch,put,delete,HEAD,GET,POST,PATCH,PUT,DELETE)"
+      - key: VoiceReceiveMode
+        value: <string>
+        description: "The configuration parameter for the new phone number to receive incoming voice calls or faxes. Can be: `fax` or `voice` and defaults to `voice`. (This can only be one of voice,fax)"
+      - key: VoiceUrl
+        value: <uri>
+        description: The URL that we should call to answer a call to the new phone number. The `voice_url` will not be called if a `voice_application_sid` or a `trunk_sid` is set.
+response:
+  statusCode: 201
+  statusText: Created
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+       "account_sid": "ACB6",
+       "address_requirements": "foreign",
+       "address_sid": "ADeA",
+       "api_version": "reprehenderit laborum Excepteur",
+       "beta": false,
+       "bundle_sid": "BUB2",
+       "capabilities": {},
+       "date_created": "incididunt ad",
+       "date_updated": "consequat nostrud non Excepteur",
+       "emergency_address_sid": "ADAd",
+       "emergency_status": "Inactive",
+       "friendly_name": "Excepteur qui aute occaecat",
+       "identity_sid": "RI4F",
+       "origin": "ex sit non",
+       "phone_number": "incididunt",
+       "sid": "PNFd",
+       "sms_application_sid": "APD1",
+       "sms_fallback_method": "put",
+       "sms_fallback_url": "https://sqnVhokvKfX.ggVS",
+       "sms_method": "delete",
+       "sms_url": "http://KvTTK.eixDOBAKnXDodC",
+       "status": "Duis est",
+       "status_callback": "https://lukPySBKCSJZRDfZeLGCQEJiiZlrSGtT.slbsog2f2Byb3SNOpnvFCnKiEUbexVWC5tK9Qaj0IFkIVhVKN+mNB826euAwsZOYNBGrdhphsN",
+       "status_callback_method": "HEAD",
+       "trunk_sid": "TK29",
+       "uri": "http://efvlxkNPQlPFtoHjtYEM.qceW6gOSsyL5X8uZPGhiRrpPWucrUmJlQexyf4Dl9T7ahcoPDgC3k2TRG",
+       "voice_application_sid": "AP5b",
+       "voice_caller_id_lookup": true,
+       "voice_fallback_method": "head",
+       "voice_fallback_url": "https://YYJSXXIemHJDgyPulvPuSDhUfIJ.ofhsUNmlqzZSTo7nnhXYYLQgunn2ScfFWt4qoJ,M2zYA,",
+       "voice_method": "PATCH",
+       "voice_receive_mode": "voice",
+       "voice_url": "https://lNOljQzheebolftPuuCa.qjzdVdF,m6lXjsq+rV4sijQkntubbHInkrQaJO2zBraF0"
+      }
+order: 1000

@@ -1,0 +1,18 @@
+$kind: http-request
+name: /api/create-user
+url: https://mobulous-tech.vercel.app/api/create-user
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"name\": \"kartik\",\r
+
+    \  \"email\": \"ksr2222@teleworm.us\",\r
+
+    \  \"phone\": \"9876543255\",\r
+
+    \  \"password\": \"MyPass@123\"\r
+
+    }\r\n"
+order: 1000

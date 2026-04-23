@@ -1,0 +1,27 @@
+# Use this workspace to collaborate
+workspace:
+  id: 8ade9f77-5171-4d4d-81ed-0df422abf3f9
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ..\postman\collections\REST API basics- CRUD, test & variable: 20827533-01126044-a90b-4e87-b76b-3c0811f78243
+    ..\postman\collections\Twilio Messaging - SMS: 20827533-2daa04d7-e5e8-4b71-832e-d9d26377e3db
+    ..\postman\collections\AssetHeaven: 20827533-443f7fa9-3e41-461d-a4ce-70987f2e6145
+    ..\postman\collections\Twilio Messaging - SMS-1: 20827533-489d5f81-6213-4e58-85dc-508ad59115e9
+    ..\postman\collections\REST API basics- CRUD, test & variable-1: 20827533-4bd6bab5-2542-4609-bfb1-d9d402d45018
+    ..\postman\collections\iperklms: 20827533-6e124a26-0349-49da-a24f-3ea619f92801
+    ..\postman\collections\procupine: 20827533-7c078d27-0914-4923-a1e5-d5becc72b828
+    ..\postman\collections\Twilio Messaging - SMS-2: 20827533-90a2d22b-9e81-4106-a23e-04e4e4e1ab39
+    ..\postman\collections\New Collection: 20827533-97c1a7c7-0ffd-407c-a1e2-bc74f5fc9c32
+    ..\postman\collections\New Collection-1: 20827533-9c59a443-b37e-427c-91a1-69c616d54bf7
+    ..\postman\collections\Procupine-1: 20827533-a249478f-78ca-4586-9d60-c662fd49bc37
+    ..\postman\collections\Twilio Messaging - SMS-3: 20827533-a6487c66-75ca-4005-b5a6-2d9cf6b93f07
+    ..\postman\collections\Twilio Messaging - SMS-4: 20827533-bf6656d2-abaf-4610-8ecd-22fb9a68c633
+
+# All resources in the `postman/` folder are automatically registered in Local View.
+# Point to additional files outside the `postman/` folder to register them individually. Example:
+#localResources:
+#  collections:
+#    - ../tests/E2E Test Collection/

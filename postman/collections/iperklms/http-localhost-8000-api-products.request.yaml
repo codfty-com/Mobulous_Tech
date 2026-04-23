@@ -1,0 +1,18 @@
+$kind: http-request
+name: http://localhost:8000/api/products
+url: http://localhost:8000/api/products
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \  \"id\": \"P9\",\r
+
+    \  \"title\": \"Leave Management System\",\r
+
+    \  \"file\": \"leave_mgmt.svg\",\r
+
+    \  \"description\": \"A tool for managing employee leaves and attendance.\"\r
+
+    }\r\n"
+order: 3000
