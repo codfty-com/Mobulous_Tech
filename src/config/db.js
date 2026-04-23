@@ -1,36 +1,35 @@
 import mongoose from "mongoose";
+import { env } from "./env.js";
 
-const MONGO_URI = process.env.MONGO_URI;
-
-if (!MONGO_URI) {
-  throw new Error("❌ MONGO_URI is not defined in environment variables");
-}
-
-let cached = global.mongoose || { conn: null, promise: null };
+let cached = globalThis.__mongoose || { conn: null, promise: null };
 
 const connectDB = async () => {
   try {
+    if (!env.mongoUri) {
+      throw new Error("MONGO_URI is not defined in environment variables");
+    }
+
     if (cached.conn) {
       return cached.conn;
     }
 
     if (!cached.promise) {
       cached.promise = mongoose
-        .connect(MONGO_URI, {
+        .connect(env.mongoUri, {
           bufferCommands: false,
         })
         .then((mongooseInstance) => {
-          console.log("✅ MongoDB connected");
+          console.log("MongoDB connected");
           return mongooseInstance;
         });
     }
 
     cached.conn = await cached.promise;
-    global.mongoose = cached;
+    globalThis.__mongoose = cached;
 
     return cached.conn;
   } catch (error) {
-    console.error("❌ DB Connection Error:", error);
+    console.error("DB connection error:", error);
     throw error;
   }
 };

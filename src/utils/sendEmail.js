@@ -1,27 +1,29 @@
 import nodemailer from "nodemailer";
+import { env } from "../config/env.js";
 
-export const sendEmail = async (to, subject, text) => {
-  // ✅ Debug logs
-  console.log("EMAIL_USER:", process.env.EMAIL_USER);
-  console.log(
-    "EMAIL_PASS:",
-    process.env.EMAIL_PASS ? "Loaded ✅" : "Not Loaded ❌",
-  );
+let transporter;
 
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error("Email credentials are missing in .env file");
+const getTransporter = () => {
+  if (!env.emailUser || !env.emailPass) {
+    throw new Error("Email credentials are missing in environment variables");
   }
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: env.emailUser,
+        pass: env.emailPass,
+      },
+    });
+  }
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+  return transporter;
+};
+
+export const sendEmail = async (to, subject, text) => {
+  await getTransporter().sendMail({
+    from: env.emailUser,
     to,
     subject,
     text,

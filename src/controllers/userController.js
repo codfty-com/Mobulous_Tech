@@ -5,6 +5,8 @@ import { sendEmail } from "../utils/sendEmail.js";
 
 const OTP_EXPIRY_MINUTES = 5;
 const LOGIN_REDIRECT_URL = process.env.LOGIN_REDIRECT_URL || "/login";
+const EMAIL_PASSWORD_METHOD = "email_password";
+const GOOGLE_METHOD = "google";
 
 const generateOtp = () => randomInt(100000, 1000000).toString();
 
@@ -53,10 +55,25 @@ export const createUser = async (req, res) => {
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
+      if (
+        existingUser.authMethods?.includes(GOOGLE_METHOD) &&
+        !existingUser.authMethods?.includes(EMAIL_PASSWORD_METHOD)
+      ) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "This email is already registered with Google login. Please continue with Google.",
+        });
+      }
+
       if (!existingUser.isEmailVerified) {
         existingUser.name = name;
         existingUser.phone = phone;
         existingUser.password = await bcrypt.hash(password, 10);
+        existingUser.authMethods = Array.from(
+          new Set([...(existingUser.authMethods || []), EMAIL_PASSWORD_METHOD]),
+        );
+        existingUser.lastLoginMethod = EMAIL_PASSWORD_METHOD;
         setSignupOtp(existingUser);
 
         await existingUser.save();
@@ -86,6 +103,8 @@ export const createUser = async (req, res) => {
       email,
       phone,
       password: hashedPassword,
+      authMethods: [EMAIL_PASSWORD_METHOD],
+      lastLoginMethod: EMAIL_PASSWORD_METHOD,
       isEmailVerified: false,
     });
 
@@ -175,5 +194,4 @@ export const verifySignupOtp = async (req, res) => {
     });
   }
 };
-
 
