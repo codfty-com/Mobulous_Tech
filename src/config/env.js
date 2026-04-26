@@ -30,6 +30,7 @@ export const env = {
     configuredBaseUrl ||
     (vercelBaseUrl ? `https://${vercelBaseUrl}` : `http://localhost:${port}`),
   mongoUri: process.env.MONGO_URI?.trim() || "",
+  mongoDbName: process.env.MONGO_DB_NAME?.trim() || "",
   corsOrigins: parseList(process.env.CORS_ORIGINS),
   enableSwagger: parseBoolean(process.env.ENABLE_SWAGGER, true),
   requestBodyLimit: process.env.REQUEST_BODY_LIMIT?.trim() || "1mb",

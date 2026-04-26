@@ -1,4 +1,5 @@
 $kind: http-request
+name: update-profile
 url: ""
 method: GET
-order: 2975333532831041
+order: 10000

@@ -29,6 +29,12 @@
       "description": "Auto-populated after login"
     },
     {
+      "key": "userId",
+      "value": "",
+      "type": "string",
+      "description": "MongoDB _id. Set from Create User/Login/Get All Users response for profile testing"
+    },
+    {
       "key": "otpCode",
       "value": "",
       "type": "string",
@@ -176,6 +182,10 @@
                   "if (json.token) {",
                   "  pm.collectionVariables.set('authToken', json.token);",
                   "  console.log('Token saved to authToken variable');",
+                  "}",
+                  "if (json.data && json.data._id) {",
+                  "  pm.collectionVariables.set('userId', json.data._id);",
+                  "  console.log('userId saved:', json.data._id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -214,6 +224,9 @@
                   "pm.test('Success true', () => pm.expect(json.success).to.be.true);",
                   "if (json.token) {",
                   "  pm.collectionVariables.set('authToken', json.token);",
+                  "}",
+                  "if (json.data && json.data._id) {",
+                  "  pm.collectionVariables.set('userId', json.data._id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -357,8 +370,74 @@
                   "pm.test('No password field', () => {",
                   "  if (json.data.length > 0) {",
                   "    pm.expect(json.data[0]).to.not.have.property('password');",
+                  "    pm.collectionVariables.set('userId', json.data[0]._id);",
+                  "    console.log('userId saved:', json.data[0]._id);",
                   "  }",
                   "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get User Profile by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{userId}}"]
+            },
+            "description": "Fetch one user profile by MongoDB _id. Sensitive fields (password, otp, otpExpiry) are excluded."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Success true', () => pm.expect(json.success).to.be.true);",
+                  "pm.test('Matches requested user', () => pm.expect(json.data._id).to.equal(pm.collectionVariables.get('userId')));",
+                  "pm.test('No password field', () => pm.expect(json.data).to.not.have.property('password'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update User Profile by ID",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Test User\",\n  \"phone\": \"+919999999999\",\n  \"profilePicture\": \"https://example.com/profile.png\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{userId}}"]
+            },
+            "description": "Update editable profile fields by MongoDB _id only: name, phone, profilePicture. Credentials and verification fields are intentionally not editable here."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Success true', () => pm.expect(json.success).to.be.true);",
+                  "pm.test('Name updated', () => pm.expect(json.data.name).to.equal('Updated Test User'));",
+                  "pm.test('No password field', () => pm.expect(json.data).to.not.have.property('password'));"
                 ],
                 "type": "text/javascript"
               }

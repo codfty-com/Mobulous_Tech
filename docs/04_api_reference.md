@@ -143,6 +143,72 @@ Get all registered users.
 
 ---
 
+### `GET /api/users/:_id`
+Get one user profile by MongoDB `_id`.
+
+**Example:** `GET /api/users/64abc123abc123abc123abcd`
+
+Query-string fallback is also supported: `GET /api/users?_id=64abc123abc123abc123abcd`
+
+**Success `200`:**
+```json
+{
+  "success": true,
+  "message": "User profile fetched successfully",
+  "data": {
+    "_id": "64abc123abc123abc123abcd",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "+919876543210",
+    "profilePicture": "https://example.com/profile.png",
+    "isEmailVerified": true,
+    "authMethods": ["email_password"],
+    "lastLoginMethod": "email_password"
+  }
+}
+```
+
+**Error cases:** `400` - Invalid user `_id` | `404` - User not found.
+
+---
+
+### `PATCH /api/users/:_id`
+Update editable user profile details by MongoDB `_id`.
+
+**Editable fields:** `name`, `phone`, `profilePicture`
+
+> Credentials and verification fields (`email`, `password`, `otp`, `authMethods`, `isEmailVerified`, etc.) are intentionally not editable through this profile endpoint.
+
+**Request Body:**
+```json
+{
+  "name": "John Updated",
+  "phone": "+919999999999",
+  "profilePicture": "https://example.com/profile.png"
+}
+```
+
+**Success `200`:**
+```json
+{
+  "success": true,
+  "message": "User profile updated successfully",
+  "data": {
+    "_id": "64abc123abc123abc123abcd",
+    "name": "John Updated",
+    "email": "john@example.com",
+    "phone": "+919999999999",
+    "profilePicture": "https://example.com/profile.png"
+  }
+}
+```
+
+To remove optional profile fields, send `null` or an empty string for `phone` / `profilePicture`.
+
+**Error cases:** `400` - Invalid user `_id` / validation failed | `404` - User not found.
+
+---
+
 ## Password Reset Routes — `src/routes/resetPassRoutes.js`
 
 ### `POST /api/forgot-password`
