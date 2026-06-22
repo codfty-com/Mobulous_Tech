@@ -1,5 +1,10 @@
 $kind: http-request
 name: update-profile
-url: ""
-method: GET
+url: http://localhost:4500/api/users/69ee5f2af46e998ef458139f
+method: PATCH
+headers:
+  id: 69d555d8a1124df18d6649a8
+body:
+  type: json
+  content: ""
 order: 10000

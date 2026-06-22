@@ -1,0 +1,10 @@
+$kind: http-request
+name: "Localhost: all mutual funds"
+url: http://localhost:4500/api/mutual-funds?query=parag%20parikh&limit=10
+method: GET
+queryParams:
+  - key: query
+    value: parag%20parikh
+  - key: limit
+    value: "10"
+order: 2975333532831041

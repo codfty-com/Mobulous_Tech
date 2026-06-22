@@ -194,4 +194,3 @@ export const verifySignupOtp = async (req, res) => {
     });
   }
 };
-

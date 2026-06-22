@@ -359,6 +359,70 @@ Or via query string: `POST /api/market-data/refresh?keys=nifty,sensex`
 
 ---
 
+## Mutual Fund Data Routes - `src/routes/mutualFundDataRoutes.js`
+
+These routes use the free MFapi.in provider. No API key is required. Results are cached in MongoDB like market data.
+
+### `GET /api/mutual-funds`
+Search mutual fund schemes by name. Use this for dropdowns/search screens.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `query` | `string` | empty | Scheme name search text, e.g. `hdfc`, `parag parikh` |
+| `limit` | `number` | `50` | Maximum rows returned, capped at `100` |
+| `forceRefresh` | `boolean` | `false` | Refresh scheme list cache from provider |
+
+**Example:** `GET /api/mutual-funds?query=parag%20parikh&limit=10`
+
+---
+
+### `GET /api/mutual-fund-data`
+Get latest NAV data for one or more scheme codes.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `schemeCodes` | `string` | default popular schemes | Comma-separated scheme codes, e.g. `122639,120465` |
+| `forceRefresh` | `boolean` | `false` | Skip latest NAV cache |
+
+**Example:** `GET /api/mutual-fund-data?schemeCodes=122639,120465`
+
+---
+
+### `GET /api/mutual-fund-data/:schemeCode`
+Get latest NAV data for a single scheme.
+
+**Example:** `GET /api/mutual-fund-data/122639`
+
+---
+
+### `GET /api/mutual-fund-data/:schemeCode/history`
+Get historical NAV data for a scheme.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `limit` | `number` or `all` | `30` | Number of NAV rows returned. `all` returns full cached/provider history |
+| `forceRefresh` | `boolean` | `false` | Skip history cache |
+
+**Example:** `GET /api/mutual-fund-data/122639/history?limit=30`
+
+---
+
+### `POST /api/mutual-fund-data/refresh`
+Force-refresh latest NAV data for specified scheme codes.
+
+**Request Body:**
+```json
+{ "schemeCodes": [122639, 120465] }
+```
+
+---
+
 ## Health Check
 
 ### `GET /`

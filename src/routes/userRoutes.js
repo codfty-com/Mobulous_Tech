@@ -2,6 +2,7 @@ import express from "express";
 import { createUser, verifySignupOtp } from "../controllers/userController.js";
 import { getAllusers } from "../controllers/allUserList.js";
 import {
+  deleteUserProfileById,
   getUserProfileById,
   updateUserProfileById,
 } from "../controllers/userProfileController.js";
@@ -21,6 +22,7 @@ router.post(["/verify-email-otp"], verifySignupOtp);
 router.get("/users", getUsers);
 router.get("/users/:_id", getUserProfileById);
 router.patch("/users/:_id", updateUserProfileById);
+router.delete("/users/:_id", deleteUserProfileById);
 router.post("/login-user", loginUser);
 router.post("/login-google", loginWithGoogle);
 

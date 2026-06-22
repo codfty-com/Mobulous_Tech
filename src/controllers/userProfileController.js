@@ -188,3 +188,37 @@ export const updateUserProfileById = async (req, res) => {
     });
   }
 };
+
+export const deleteUserProfileById = async (req, res) => {
+  try {
+    const _id = getRequestUserId(req);
+
+    if (!mongoose.isValidObjectId(_id)) {
+      return sendError(res, {
+        statusCode: 400,
+        message: "Invalid user _id",
+      });
+    }
+
+    const user = await User.findByIdAndDelete(_id).select(SAFE_USER_SELECT);
+
+    if (!user) {
+      return sendError(res, {
+        statusCode: 404,
+        message: "User not found",
+      });
+    }
+
+    return sendSuccess(res, {
+      message: "User deleted successfully",
+      data: user,
+    });
+  } catch (error) {
+    console.error("Delete user profile error:", error);
+
+    return sendError(res, {
+      statusCode: 500,
+      message: "Internal server error",
+    });
+  }
+};
