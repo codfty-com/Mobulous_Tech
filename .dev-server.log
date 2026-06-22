@@ -1,0 +1,11 @@
+
+> mobulous_tech@1.0.0 dev
+> nodemon server.js
+
+[33m[nodemon] 3.1.14[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): server.js src\**\*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node server.js server.js`[39m
+> Local server ready on http://localhost:4500
+MongoDB connected

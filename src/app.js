@@ -1,14 +1,14 @@
 import express from "express";
-import dotenv from "dotenv";
+import "dotenv/config";
 import cors from "cors";
 import connectDB from "./config/db.js";
 import userRoutes from "./routes/userRoutes.js";
 import resetPassRoutes from "./routes/resetPassRoutes.js";
 import marketDataRoutes from "./routes/marketDataRoutes.js";
-
-dotenv.config();
+import mutualFundDataRoutes from "./routes/mutualFundDataRoutes.js";
 
 const app = express();
+const apiRouter = express.Router();
 
 const trimTrailingPathWhitespace = (url) => {
   const queryStart = url.indexOf("?");
@@ -70,9 +70,14 @@ app.use(async (req, res, next) => {
 });
 
 // ✅ Routes
-app.use("/api", userRoutes);
-app.use("/api", resetPassRoutes);
-app.use("/api", marketDataRoutes);
+apiRouter.use(userRoutes);
+apiRouter.use(resetPassRoutes);
+apiRouter.use(marketDataRoutes);
+apiRouter.use(mutualFundDataRoutes);
+
+// Support both direct mounts and /api-prefixed mounts.
+app.use(apiRouter);
+app.use("/api", apiRouter);
 
 // ✅ Health check
 app.get("/", (req, res) => {
@@ -98,3 +103,5 @@ app.use((err, req, res, next) => {
 });
 
 export default app;
+
+

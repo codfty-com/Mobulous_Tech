@@ -6,22 +6,15 @@ import bcrypt from "bcryptjs";
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-
     const user = await User.findOne({ email });
-
     if (!user) {
       return res.status(400).json({ message: "User not found" });
     }
-
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
     user.otp = otp;
     user.otpExpiry = Date.now() + 5 * 60 * 1000;
-
     await user.save();
-
     await sendEmail(email, "OTP for Reset Password", `Your OTP is ${otp}`);
-
     res.status(200).json({
       message: "OTP sent successfully",
     });
@@ -38,19 +31,15 @@ export const forgotPassword = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
-
     const user = await User.findOne({ email });
 
     if (!user) return res.status(400).json({ message: "User not found" });
-
     if (user.otp !== otp) {
       return res.status(400).json({ message: "Invalid OTP" });
     }
-
     if (user.otpExpiry < Date.now()) {
       return res.status(400).json({ message: "OTP expired" });
     }
-
     res.status(200).json({
       message: "OTP verified successfully",
     });
@@ -63,11 +52,9 @@ export const verifyOtp = async (req, res) => {
 export const resetPassword = async (req, res) => {
   try {
     const { email, newPassword } = req.body;
-
     const user = await User.findOne({ email });
 
     if (!user) return res.status(400).json({ message: "User not found" });
-
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
 
@@ -75,7 +62,6 @@ export const resetPassword = async (req, res) => {
     user.otpExpiry = null;
 
     await user.save();
-
     res.status(200).json({
       message: "Password reset successful",
     });

@@ -14,10 +14,13 @@ const connectDB = async () => {
     }
 
     if (!cached.promise) {
+      const connectOptions = {
+        bufferCommands: false,
+        ...(env.mongoDbName ? { dbName: env.mongoDbName } : {}),
+      };
+
       cached.promise = mongoose
-        .connect(env.mongoUri, {
-          bufferCommands: false,
-        })
+        .connect(env.mongoUri, connectOptions)
         .then((mongooseInstance) => {
           console.log("MongoDB connected");
           return mongooseInstance;

@@ -143,6 +143,72 @@ Get all registered users.
 
 ---
 
+### `GET /api/users/:_id`
+Get one user profile by MongoDB `_id`.
+
+**Example:** `GET /api/users/64abc123abc123abc123abcd`
+
+Query-string fallback is also supported: `GET /api/users?_id=64abc123abc123abc123abcd`
+
+**Success `200`:**
+```json
+{
+  "success": true,
+  "message": "User profile fetched successfully",
+  "data": {
+    "_id": "64abc123abc123abc123abcd",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "+919876543210",
+    "profilePicture": "https://example.com/profile.png",
+    "isEmailVerified": true,
+    "authMethods": ["email_password"],
+    "lastLoginMethod": "email_password"
+  }
+}
+```
+
+**Error cases:** `400` - Invalid user `_id` | `404` - User not found.
+
+---
+
+### `PATCH /api/users/:_id`
+Update editable user profile details by MongoDB `_id`.
+
+**Editable fields:** `name`, `phone`, `profilePicture`
+
+> Credentials and verification fields (`email`, `password`, `otp`, `authMethods`, `isEmailVerified`, etc.) are intentionally not editable through this profile endpoint.
+
+**Request Body:**
+```json
+{
+  "name": "John Updated",
+  "phone": "+919999999999",
+  "profilePicture": "https://example.com/profile.png"
+}
+```
+
+**Success `200`:**
+```json
+{
+  "success": true,
+  "message": "User profile updated successfully",
+  "data": {
+    "_id": "64abc123abc123abc123abcd",
+    "name": "John Updated",
+    "email": "john@example.com",
+    "phone": "+919999999999",
+    "profilePicture": "https://example.com/profile.png"
+  }
+}
+```
+
+To remove optional profile fields, send `null` or an empty string for `phone` / `profilePicture`.
+
+**Error cases:** `400` - Invalid user `_id` / validation failed | `404` - User not found.
+
+---
+
 ## Password Reset Routes — `src/routes/resetPassRoutes.js`
 
 ### `POST /api/forgot-password`
@@ -289,6 +355,70 @@ Or via query string: `POST /api/market-data/refresh?keys=nifty,sensex`
   "count": 2,
   "data": [ ... ]
 }
+```
+
+---
+
+## Mutual Fund Data Routes - `src/routes/mutualFundDataRoutes.js`
+
+These routes use the free MFapi.in provider. No API key is required. Results are cached in MongoDB like market data.
+
+### `GET /api/mutual-funds`
+Search mutual fund schemes by name. Use this for dropdowns/search screens.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `query` | `string` | empty | Scheme name search text, e.g. `hdfc`, `parag parikh` |
+| `limit` | `number` | `50` | Maximum rows returned, capped at `100` |
+| `forceRefresh` | `boolean` | `false` | Refresh scheme list cache from provider |
+
+**Example:** `GET /api/mutual-funds?query=parag%20parikh&limit=10`
+
+---
+
+### `GET /api/mutual-fund-data`
+Get latest NAV data for one or more scheme codes.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `schemeCodes` | `string` | default popular schemes | Comma-separated scheme codes, e.g. `122639,120465` |
+| `forceRefresh` | `boolean` | `false` | Skip latest NAV cache |
+
+**Example:** `GET /api/mutual-fund-data?schemeCodes=122639,120465`
+
+---
+
+### `GET /api/mutual-fund-data/:schemeCode`
+Get latest NAV data for a single scheme.
+
+**Example:** `GET /api/mutual-fund-data/122639`
+
+---
+
+### `GET /api/mutual-fund-data/:schemeCode/history`
+Get historical NAV data for a scheme.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `limit` | `number` or `all` | `30` | Number of NAV rows returned. `all` returns full cached/provider history |
+| `forceRefresh` | `boolean` | `false` | Skip history cache |
+
+**Example:** `GET /api/mutual-fund-data/122639/history?limit=30`
+
+---
+
+### `POST /api/mutual-fund-data/refresh`
+Force-refresh latest NAV data for specified scheme codes.
+
+**Request Body:**
+```json
+{ "schemeCodes": [122639, 120465] }
 ```
 
 ---
