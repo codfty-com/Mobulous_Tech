@@ -1,0 +1,4 @@
+$kind: http-request
+url: http://localhost:3000/api/market-data/overview?region=US&count=8
+method: GET
+order: 9012

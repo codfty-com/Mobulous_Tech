@@ -1,5 +1,7 @@
+import { env } from "./env.js";
+
 export const MUTUAL_FUND_PROVIDER = {
-  baseUrl: process.env.MUTUAL_FUND_API_BASE_URL || "https://api.mfapi.in",
+  baseUrl: env.mutualFundApiBaseUrl,
   name: "mfapi.in",
 };
 

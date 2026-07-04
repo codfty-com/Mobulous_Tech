@@ -34,10 +34,10 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.3.0",
     "morgan": "^1.10.1",
-    "nodemailer": "^8.0.2",
+    "nodemailer": "^9.0.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "yahoo-finance2": "^3.14.0"
+    "yahoo-finance2": "^3.15.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
