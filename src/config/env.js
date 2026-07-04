@@ -20,6 +20,7 @@ const port = parseNumber(process.env.PORT, 3000);
 
 const configuredBaseUrl = process.env.APP_BASE_URL?.trim();
 const vercelBaseUrl = process.env.VERCEL_URL?.trim();
+const hostingerBaseUrl = process.env.HOSTINGER_URL?.trim();
 
 export const env = {
   appName: process.env.APP_NAME?.trim() || "Mobulous Tech API",
@@ -28,6 +29,7 @@ export const env = {
   port,
   appBaseUrl:
     configuredBaseUrl ||
+    (hostingerBaseUrl ? `https://${hostingerBaseUrl}` : null) ||
     (vercelBaseUrl ? `https://${vercelBaseUrl}` : `http://localhost:${port}`),
   mongoUri: process.env.MONGO_URI?.trim() || "",
   mongoDbName: process.env.MONGO_DB_NAME?.trim() || "",
@@ -44,6 +46,32 @@ export const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN?.trim() || "1d",
   emailUser: process.env.EMAIL_USER?.trim() || "",
   emailPass: process.env.EMAIL_PASS?.trim() || "",
+  mutualFundApiBaseUrl:
+    process.env.MUTUAL_FUND_API_BASE_URL?.trim() || "https://api.mfapi.in",
+  mutualFundSchemeListCacheDurationMinutes: parseNumber(
+    process.env.MUTUAL_FUND_SCHEME_LIST_CACHE_DURATION_MINUTES,
+    720,
+  ),
+  mutualFundLatestCacheDurationMinutes: parseNumber(
+    process.env.MUTUAL_FUND_LATEST_CACHE_DURATION_MINUTES,
+    720,
+  ),
+  mutualFundHistoryCacheDurationMinutes: parseNumber(
+    process.env.MUTUAL_FUND_HISTORY_CACHE_DURATION_MINUTES,
+    1440,
+  ),
+  mutualFundHistoryDefaultLimit: parseNumber(
+    process.env.MUTUAL_FUND_HISTORY_DEFAULT_LIMIT,
+    30,
+  ),
+  mutualFundHistoryMaxLimit: parseNumber(
+    process.env.MUTUAL_FUND_HISTORY_MAX_LIMIT,
+    5000,
+  ),
+  mutualFundProviderTimeoutMs: parseNumber(
+    process.env.MUTUAL_FUND_PROVIDER_TIMEOUT_MS,
+    15000,
+  ),
   googleClientIds: parseList(
     process.env.GOOGLE_CLIENT_IDS || process.env.GOOGLE_CLIENT_ID,
   ),

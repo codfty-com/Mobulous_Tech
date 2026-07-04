@@ -2,10 +2,12 @@ import express from "express";
 import "dotenv/config";
 import cors from "cors";
 import connectDB from "./config/db.js";
+import { env, getCorsOptions } from "./config/env.js";
 import userRoutes from "./routes/userRoutes.js";
 import resetPassRoutes from "./routes/resetPassRoutes.js";
 import marketDataRoutes from "./routes/marketDataRoutes.js";
 import mutualFundDataRoutes from "./routes/mutualFundDataRoutes.js";
+import docsRoutes from "./routes/docsRoutes.js";
 
 const app = express();
 const apiRouter = express.Router();
@@ -23,20 +25,18 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ CORS - must be before body parsers
-app.use(cors());
+app.use(cors(getCorsOptions()));
 
-// ✅ Body parsers
-app.use(express.json({ strict: false }));
+app.use(express.json({ limit: env.requestBodyLimit, strict: false }));
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Fallback: parse raw body as JSON if Content-Type header was missing
 app.use((req, res, next) => {
-  if (req.body !== undefined) return next(); // already parsed
+  if (req.body !== undefined) return next();
 
   const method = req.method;
-  if (method !== "POST" && method !== "PUT" && method !== "PATCH")
+  if (method !== "POST" && method !== "PUT" && method !== "PATCH") {
     return next();
+  }
 
   let raw = "";
   req.setEncoding("utf8");
@@ -57,9 +57,11 @@ app.use((req, res, next) => {
   });
 });
 
+app.use(docsRoutes);
+app.use("/api", docsRoutes);
+
 const dbPromise = connectDB();
 
-// ✅ Middleware to ensure DB is connected before processing requests
 app.use(async (req, res, next) => {
   try {
     await dbPromise;
@@ -69,22 +71,22 @@ app.use(async (req, res, next) => {
   }
 });
 
-// ✅ Routes
 apiRouter.use(userRoutes);
 apiRouter.use(resetPassRoutes);
 apiRouter.use(marketDataRoutes);
 apiRouter.use(mutualFundDataRoutes);
 
-// Support both direct mounts and /api-prefixed mounts.
 app.use(apiRouter);
 app.use("/api", apiRouter);
 
-// ✅ Health check
 app.get("/", (req, res) => {
-  res.status(200).send("🚀 API is running on Vercel");
+  res.status(200).json({
+    success: true,
+    message: `${env.appName} is running`,
+    environment: env.nodeEnv,
+  });
 });
 
-// ✅ 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -92,7 +94,6 @@ app.use((req, res) => {
   });
 });
 
-// ✅ Global error handler
 app.use((err, req, res, next) => {
   console.error("Global Error:", err);
 
@@ -103,5 +104,3 @@ app.use((err, req, res, next) => {
 });
 
 export default app;
-
-
