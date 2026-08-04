@@ -15,6 +15,20 @@ This project now exposes free Yahoo Finance powered endpoints for showing market
 
 Returns supported market-mover list types and cache defaults.
 
+### `GET /api/stocks`
+
+Searches Yahoo Finance stock symbols by company/share name.
+
+Query params:
+- `query` or `search`: required text like `hdfc bank`, `reliance`, `apple`
+- `region`: Yahoo region code like `IN`, `US`; default `US`
+- `count` or `limit`: number of equity rows, `1` to `25`, default `10`
+- `lang`: optional locale like `en-IN`, `en-US`
+- `forceRefresh`: `true` to skip cache
+
+Example:
+`GET /api/stocks?query=hdfc%20bank&region=IN&limit=10&lang=en-IN`
+
 ### `GET /api/market-data/trending`
 
 Returns currently trending symbols for a region.

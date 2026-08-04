@@ -1,6 +1,8 @@
 import { DEFAULT_MARKET_KEYS } from "../config/marketSymbols.js";
 import {
   getMarketMoverData,
+  getMarketMoverDetail,
+  getTopGainerDetails,
   getMarketHomeData,
   getMarketNewsData,
   getMarketOverview,
@@ -10,6 +12,7 @@ import {
   getSupportedMarkets,
   getTopShareMarketData,
   getTrendingMarketSymbols,
+  searchStockSymbols,
 } from "../services/marketData.service.js";
 
 const parseKeys = (value) => {
@@ -82,6 +85,22 @@ export const getAvailableMarkets = async (req, res) => {
   }
 };
 
+export const searchStocks = async (req, res) => {
+  try {
+    const result = await searchStockSymbols({
+      query: req.query.query || req.query.search,
+      region: req.query.region,
+      count: req.query.count || req.query.limit,
+      lang: req.query.lang,
+      forceRefresh: parseForceRefresh(req.query.forceRefresh),
+    });
+
+    return sendMarketResponse(res, "Stocks fetched successfully", result);
+  } catch (error) {
+    return handleControllerError(res, error);
+  }
+};
+
 export const getAvailableMarketCollections = async (req, res) => {
   try {
     return sendMarketResponse(
@@ -147,6 +166,87 @@ export const getMarketMovers = async (req, res) => {
     return sendMarketResponse(
       res,
       "Market movers fetched successfully",
+      result,
+    );
+  } catch (error) {
+    return handleControllerError(res, error);
+  }
+};
+
+export const getMarketMoverById = async (req, res) => {
+  try {
+    const result = await getMarketMoverDetail({
+      listId: req.params.listId || req.query.list || req.query.listId,
+      id: req.params.id,
+      region: req.query.region,
+      count: parseCount(req.query.count),
+      lang: req.query.lang,
+      forceRefresh: parseForceRefresh(req.query.forceRefresh),
+    });
+
+    return sendMarketResponse(
+      res,
+      "Market mover detail fetched successfully",
+      result,
+    );
+  } catch (error) {
+    return handleControllerError(res, error);
+  }
+};
+
+export const getTopGainerDetailsList = async (req, res) => {
+  try {
+    const result = await getTopGainerDetails({
+      ids: parseList(req.query.ids || req.query.positions || req.query.ranks),
+      region: req.query.region,
+      lang: req.query.lang,
+      forceRefresh: parseForceRefresh(req.query.forceRefresh),
+    });
+
+    return sendMarketResponse(
+      res,
+      "Top gainer details fetched successfully",
+      result,
+    );
+  } catch (error) {
+    return handleControllerError(res, error);
+  }
+};
+export const getTopGainerById = async (req, res) => {
+  try {
+    const result = await getMarketMoverDetail({
+      listId: "day_gainers",
+      id: req.params.id,
+      region: req.query.region,
+      count: parseCount(req.query.count),
+      lang: req.query.lang,
+      forceRefresh: parseForceRefresh(req.query.forceRefresh),
+    });
+
+    return sendMarketResponse(
+      res,
+      "Top gainer detail fetched successfully",
+      result,
+    );
+  } catch (error) {
+    return handleControllerError(res, error);
+  }
+};
+
+export const getTopLoserById = async (req, res) => {
+  try {
+    const result = await getMarketMoverDetail({
+      listId: "day_losers",
+      id: req.params.id,
+      region: req.query.region,
+      count: parseCount(req.query.count),
+      lang: req.query.lang,
+      forceRefresh: parseForceRefresh(req.query.forceRefresh),
+    });
+
+    return sendMarketResponse(
+      res,
+      "Top loser detail fetched successfully",
       result,
     );
   } catch (error) {
@@ -329,3 +429,6 @@ export const refreshMarketData = async (req, res) => {
     return handleControllerError(res, error);
   }
 };
+
+
+
