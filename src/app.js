@@ -9,6 +9,7 @@ import mutualFundDataRoutes from "./routes/mutualFundDataRoutes.js";
 
 const app = express();
 const apiRouter = express.Router();
+// comment
 
 const trimTrailingPathWhitespace = (url) => {
   const queryStart = url.indexOf("?");
@@ -103,5 +104,3 @@ app.use((err, req, res, next) => {
 });
 
 export default app;
-
-
