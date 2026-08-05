@@ -7,6 +7,7 @@ import userRoutes from "./routes/userRoutes.js";
 import resetPassRoutes from "./routes/resetPassRoutes.js";
 import marketDataRoutes from "./routes/marketDataRoutes.js";
 import mutualFundDataRoutes from "./routes/mutualFundDataRoutes.js";
+import assetsRoutes from "./routes/assetsRoutes.js";
 import docsRoutes from "./routes/docsRoutes.js";
 
 const app = express();
@@ -60,6 +61,8 @@ app.use((req, res, next) => {
 
 app.use(docsRoutes);
 app.use("/api", docsRoutes);
+app.use(assetsRoutes);
+app.use("/api", assetsRoutes);
 
 const dbPromise = connectDB();
 
@@ -105,3 +108,5 @@ app.use((err, req, res, next) => {
 });
 
 export default app;
+
+

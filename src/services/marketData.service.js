@@ -45,9 +45,12 @@ export const MARKET_COLLECTION_TYPES = {
   movers: "market_movers",
   topShares: "top_share_markets",
   news: "market_news",
+  stockSearch: "stock_search",
 };
 export const DEFAULT_MARKET_NEWS_QUERY = "stock market";
 export const DEFAULT_MARKET_NEWS_REGION = "US";
+export const DEFAULT_STOCK_SEARCH_COUNT = 10;
+export const MAX_STOCK_SEARCH_COUNT = 25;
 export const TOP_SHARE_MARKET_PERIODS = {
   daily: {
     id: "daily",
@@ -107,6 +110,35 @@ const QUOTE_FIELDS = [
   "fiftyTwoWeekLow",
 ];
 
+const DETAILED_QUOTE_FIELDS = [
+  ...QUOTE_FIELDS,
+  "quoteType",
+  "typeDisp",
+  "exchangeTimezoneName",
+  "exchangeTimezoneShortName",
+  "regularMarketDayRange",
+  "regularMarketBid",
+  "regularMarketBidSize",
+  "regularMarketAsk",
+  "regularMarketAskSize",
+  "averageDailyVolume10Day",
+  "averageDailyVolume3Month",
+  "fiftyDayAverage",
+  "twoHundredDayAverage",
+  "fiftyTwoWeekRange",
+  "marketCap",
+  "sharesOutstanding",
+  "bookValue",
+  "priceToBook",
+  "trailingPE",
+  "forwardPE",
+  "epsTrailingTwelveMonths",
+  "epsForward",
+  "dividendRate",
+  "dividendYield",
+  "beta",
+];
+
 const DEFAULT_REGION_LANGUAGE = {
   US: "en-US",
   IN: "en-IN",
@@ -157,6 +189,17 @@ const normalizeNewsCount = (value, fallback = 10) => {
   return Math.min(Math.max(Math.trunc(parsed), 1), 50);
 };
 
+const normalizeStockSearchCount = (
+  value,
+  fallback = DEFAULT_STOCK_SEARCH_COUNT,
+) => {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) return fallback;
+
+  return Math.min(Math.max(Math.trunc(parsed), 1), MAX_STOCK_SEARCH_COUNT);
+};
+
 const normalizeTopShareCount = (value, fallback = TOP_SHARE_MARKET_SYMBOLS.length) => {
   const parsed = Number(value);
 
@@ -196,6 +239,18 @@ const normalizeLang = (region, lang) =>
 
 const normalizeNewsQuery = (value) =>
   String(value || DEFAULT_MARKET_NEWS_QUERY).trim();
+
+const normalizeRequiredSearchQuery = (value) => {
+  const query = String(value || "").trim();
+
+  if (!query) {
+    const error = new Error("A query or search value is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return query;
+};
 
 const getConfiguredSymbolLabel = (symbol) => {
   const normalizedSymbol = String(symbol || "").trim().toUpperCase();
@@ -335,6 +390,77 @@ const normalizeScreenerItem = ({ quote, rank, region, listId }) =>
     trendType: listId,
   });
 
+const normalizeMoverDetailQuote = (quote = {}) => {
+  const safeQuote = quote ?? {};
+
+  return {
+    quoteType: safeQuote.quoteType || safeQuote.typeDisp || null,
+    exchangeTimezoneName: safeQuote.exchangeTimezoneName || null,
+    exchangeTimezoneShortName: safeQuote.exchangeTimezoneShortName || null,
+    dayRange: safeQuote.regularMarketDayRange || null,
+    bid: toNumberOrNull(safeQuote.regularMarketBid),
+    bidSize: toNumberOrNull(safeQuote.regularMarketBidSize),
+    ask: toNumberOrNull(safeQuote.regularMarketAsk),
+    askSize: toNumberOrNull(safeQuote.regularMarketAskSize),
+    averageDailyVolume10Day: toNumberOrNull(safeQuote.averageDailyVolume10Day),
+    averageDailyVolume3Month: toNumberOrNull(safeQuote.averageDailyVolume3Month),
+    fiftyDayAverage: toNumberOrNull(safeQuote.fiftyDayAverage),
+    twoHundredDayAverage: toNumberOrNull(safeQuote.twoHundredDayAverage),
+    fiftyTwoWeekRange: safeQuote.fiftyTwoWeekRange || null,
+    marketCap: toNumberOrNull(safeQuote.marketCap),
+    sharesOutstanding: toNumberOrNull(safeQuote.sharesOutstanding),
+    bookValue: toNumberOrNull(safeQuote.bookValue),
+    priceToBook: toNumberOrNull(safeQuote.priceToBook),
+    trailingPE: toNumberOrNull(safeQuote.trailingPE),
+    forwardPE: toNumberOrNull(safeQuote.forwardPE),
+    epsTrailingTwelveMonths: toNumberOrNull(
+      safeQuote.epsTrailingTwelveMonths,
+    ),
+    epsForward: toNumberOrNull(safeQuote.epsForward),
+    dividendRate: toNumberOrNull(safeQuote.dividendRate),
+    dividendYield: toNumberOrNull(safeQuote.dividendYield),
+    beta: toNumberOrNull(safeQuote.beta),
+  };
+};
+
+const normalizeMoverDetail = ({ item, quote, listId, list, region, source }) => {
+  const latest = normalizeMarketInstrument({
+    symbol: quote?.symbol || item.symbol,
+    displayName: quote?.displayName || item.displayName,
+    shortName: quote?.shortName || item.shortName,
+    longName: quote?.longName || item.longName,
+    type: quote?.quoteType || quote?.typeDisp || item.type,
+    exchange: quote?.exchange || item.exchange,
+    fullExchangeName: quote?.fullExchangeName,
+    currency: quote?.currency || item.currency,
+    marketState: quote?.marketState || item.marketState,
+    price: quote?.regularMarketPrice ?? item.price,
+    change: quote?.regularMarketChange ?? item.change,
+    changePercent: quote?.regularMarketChangePercent ?? item.changePercent,
+    open: quote?.regularMarketOpen ?? item.open,
+    dayHigh: quote?.regularMarketDayHigh ?? item.dayHigh,
+    dayLow: quote?.regularMarketDayLow ?? item.dayLow,
+    previousClose: quote?.regularMarketPreviousClose ?? item.previousClose,
+    volume: quote?.regularMarketVolume ?? item.volume,
+    marketTime: quote?.regularMarketTime ?? item.marketTime,
+    fiftyTwoWeekHigh: quote?.fiftyTwoWeekHigh ?? item.fiftyTwoWeekHigh,
+    fiftyTwoWeekLow: quote?.fiftyTwoWeekLow ?? item.fiftyTwoWeekLow,
+    rank: item.rank,
+    region,
+    trendType: listId,
+  });
+
+  return {
+    id: latest.symbol,
+    list,
+    source,
+    data: {
+      ...latest,
+      details: normalizeMoverDetailQuote(quote),
+    },
+  };
+};
+
 const getValidMarketConfigs = (keys = DEFAULT_MARKET_KEYS) => {
   const invalidKeys = [];
   const markets = [];
@@ -370,6 +496,15 @@ const fetchQuotesBySymbols = async (symbols) => {
     return: "object",
   });
 };
+
+const fetchDetailedQuoteBySymbol = async (symbol) =>
+  yahooFinance.quote(
+    symbol,
+    {
+      fields: DETAILED_QUOTE_FIELDS,
+    },
+    { validateResult: false },
+  );
 
 const saveSnapshots = async (snapshots) => {
   if (!snapshots.length) return;
@@ -482,6 +617,19 @@ const buildCollectionResponse = (collection, source, warning) => ({
   data: collection.data || [],
 });
 
+const buildStockSearchResponse = ({ collection, source, query, warning }) => ({
+  source,
+  region: collection.region,
+  lang: collection.lang,
+  query,
+  total: collection.itemCount || 0,
+  count: Array.isArray(collection.data) ? collection.data.length : 0,
+  limit: collection.requestedCount,
+  ...(warning ? { warning } : {}),
+  meta: collection.meta || {},
+  data: collection.data || [],
+});
+
 const normalizeNewsArticle = (article) => {
   const thumbnail =
     article.thumbnail?.resolutions?.find((item) => item.tag === "140x140") ||
@@ -499,6 +647,65 @@ const normalizeNewsArticle = (article) => {
     relatedTickers: Array.isArray(article.relatedTickers)
       ? article.relatedTickers
       : [],
+  };
+};
+
+const normalizeStockSearchItem = ({ quote, rank, region }) => {
+  const symbol = quote.symbol || null;
+  const shortName = quote.shortName || quote.shortname || null;
+  const longName = quote.longName || quote.longname || null;
+
+  return {
+    rank,
+    symbol,
+    displayName: longName || shortName || symbol,
+    shortName,
+    longName,
+    type: quote.quoteType || quote.typeDisp || null,
+    exchange: quote.fullExchangeName || quote.exchange || quote.exchDisp || null,
+    exchangeCode: quote.exchange || null,
+    currency: quote.currency || null,
+    region,
+    score: toNumberOrNull(quote.score),
+    source: "yahoo-finance2",
+  };
+};
+
+const isStockQuote = (quote) =>
+  String(quote?.quoteType || "").trim().toUpperCase() === "EQUITY";
+
+const fetchStockSearchFromYahoo = async ({ query, region, count, lang }) => {
+  const providerCount = Math.min(Math.max(count * 3, count), 50);
+  const result = await yahooFinance.search(
+    query,
+    {
+      quotesCount: providerCount,
+      newsCount: 0,
+      region,
+      lang,
+    },
+    { validateResult: false },
+  );
+  const quotes = Array.isArray(result?.quotes) ? result.quotes : [];
+  const data = quotes
+    .filter(isStockQuote)
+    .slice(0, count)
+    .map((quote, index) =>
+      normalizeStockSearchItem({
+        quote,
+        rank: index + 1,
+        region,
+      }),
+    );
+
+  return {
+    meta: {
+      query,
+      providerCount: toNumberOrNull(result?.count),
+      requestedQuoteCount: providerCount,
+      totalTimeMs: toNumberOrNull(result?.totalTime),
+    },
+    data,
   };
 };
 
@@ -797,6 +1004,81 @@ export const getSupportedMarketCollections = () => ({
 export const getSupportedMarkets = () =>
   DEFAULT_MARKET_KEYS.map((key) => MARKET_SYMBOLS[key]);
 
+export const searchStockSymbols = async ({
+  query,
+  region = DEFAULT_MARKET_REGION,
+  count = DEFAULT_STOCK_SEARCH_COUNT,
+  lang,
+  forceRefresh = false,
+} = {}) => {
+  const cleanQuery = normalizeRequiredSearchQuery(query);
+  const normalizedRegion = normalizeRegion(region);
+  const normalizedCount = normalizeStockSearchCount(count);
+  const normalizedLang = normalizeLang(normalizedRegion, lang);
+  const cacheKey = buildCollectionCacheKey({
+    collectionType: MARKET_COLLECTION_TYPES.stockSearch,
+    region: normalizedRegion,
+    listId: cleanQuery.toLowerCase(),
+    count: normalizedCount,
+    lang: normalizedLang,
+  });
+
+  if (!forceRefresh) {
+    const cached = await getFreshCollectionCache(cacheKey);
+
+    if (cached) {
+      return buildStockSearchResponse({
+        collection: cached,
+        source: "cache",
+        query: cleanQuery,
+      });
+    }
+  }
+
+  try {
+    const fetchedAt = new Date();
+    const providerResult = await fetchStockSearchFromYahoo({
+      query: cleanQuery,
+      region: normalizedRegion,
+      count: normalizedCount,
+      lang: normalizedLang,
+    });
+
+    const snapshot = await saveCollectionSnapshot({
+      cacheKey,
+      collectionType: MARKET_COLLECTION_TYPES.stockSearch,
+      listId: cleanQuery.toLowerCase(),
+      region: normalizedRegion,
+      lang: normalizedLang,
+      requestedCount: normalizedCount,
+      meta: providerResult.meta,
+      data: providerResult.data,
+      fetchedAt,
+    });
+
+    return buildStockSearchResponse({
+      collection: snapshot.toObject(),
+      source: "provider",
+      query: cleanQuery,
+    });
+  } catch (error) {
+    const fallbackCache = await getAnyCollectionCache(cacheKey);
+
+    if (fallbackCache) {
+      return buildStockSearchResponse({
+        collection: fallbackCache,
+        source: "stale-cache",
+        query: cleanQuery,
+        warning:
+          "Live provider request failed, returning last cached stock search instead",
+      });
+    }
+
+    error.statusCode = 502;
+    throw error;
+  }
+};
+
 export const getMarketSnapshots = async ({
   keys = DEFAULT_MARKET_KEYS,
   forceRefresh = false,
@@ -1029,6 +1311,187 @@ export const getMarketMoverData = async ({
   }
 };
 
+export const getTopGainerDetails = async ({
+  ids = [],
+  region = DEFAULT_MARKET_REGION,
+  lang,
+  forceRefresh = false,
+} = {}) => {
+  const requestedIds = [...new Set(
+    (Array.isArray(ids) ? ids : [])
+      .map((id) => String(id || "").trim())
+      .filter(Boolean),
+  )];
+  const movers = await getMarketMoverData({
+    listId: "day_gainers",
+    region,
+    count: 10,
+    lang,
+    forceRefresh,
+  });
+
+  const topGainers = movers.data.slice(0, 10);
+  const selectedItems = requestedIds.length
+    ? requestedIds
+        .map((requestedId) => {
+          const normalizedLookupId = requestedId.toLowerCase();
+
+          return topGainers.find(
+            (mover) =>
+              String(mover.rank) === requestedId ||
+              String(mover.symbol || "").toLowerCase() === normalizedLookupId,
+          );
+        })
+        .filter(Boolean)
+    : topGainers;
+
+  const missingIds = requestedIds.filter((requestedId) => {
+    const normalizedLookupId = requestedId.toLowerCase();
+
+    return !selectedItems.some(
+      (item) =>
+        String(item.rank) === requestedId ||
+        String(item.symbol || "").toLowerCase() === normalizedLookupId,
+    );
+  });
+
+  if (!selectedItems.length) {
+    const error = new Error("No top gainers found for the provided ids");
+    error.statusCode = 404;
+    error.details = {
+      ids: requestedIds,
+      supportedIdValues:
+        "Use rank numbers 1-10 or symbols from /api/market-data/movers?list=day_gainers&count=10",
+    };
+    throw error;
+  }
+
+  const detailedItems = await Promise.all(
+    selectedItems.map(async (item) => {
+      try {
+        const quote = item.symbol
+          ? await fetchDetailedQuoteBySymbol(item.symbol)
+          : null;
+
+        return {
+          ...normalizeMoverDetail({
+            item,
+            quote,
+            listId: movers.list.id,
+            list: movers.list,
+            region: movers.region,
+            source: quote ? "provider" : movers.source,
+          }),
+          parentSource: movers.source,
+        };
+      } catch (error) {
+        return {
+          ...normalizeMoverDetail({
+            item,
+            quote: null,
+            listId: movers.list.id,
+            list: movers.list,
+            region: movers.region,
+            source: movers.source,
+          }),
+          parentSource: movers.source,
+          warning:
+            "Detailed quote request failed, returning market mover list item instead",
+        };
+      }
+    }),
+  );
+
+  return {
+    list: movers.list,
+    region: movers.region,
+    source: movers.source,
+    requestedIds: requestedIds.length
+      ? requestedIds
+      : topGainers.map((item) => String(item.rank)),
+    returnedCount: detailedItems.length,
+    missingIds,
+    data: detailedItems,
+    ...(movers.warning ? { warning: movers.warning } : {}),
+  };
+};
+export const getMarketMoverDetail = async ({
+  listId = "most_actives",
+  id,
+  region = DEFAULT_MARKET_REGION,
+  count = DEFAULT_MARKET_COLLECTION_COUNT,
+  lang,
+  forceRefresh = false,
+} = {}) => {
+  const normalizedId = String(id || "").trim();
+
+  if (!normalizedId) {
+    const error = new Error("A mover id or symbol is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const rankId = Number(normalizedId);
+  const lookupCount =
+    Number.isInteger(rankId) && rankId > 0
+      ? Math.max(Number(count) || DEFAULT_MARKET_COLLECTION_COUNT, rankId)
+      : count;
+  const movers = await getMarketMoverData({
+    listId,
+    region,
+    count: lookupCount,
+    lang,
+    forceRefresh,
+  });
+  const normalizedLookupId = normalizedId.toLowerCase();
+  const item = movers.data.find(
+    (mover) =>
+      String(mover.rank) === normalizedId ||
+      String(mover.symbol || "").toLowerCase() === normalizedLookupId,
+  );
+
+  if (!item) {
+    const error = new Error("Market mover not found for the provided id");
+    error.statusCode = 404;
+    error.details = {
+      id: normalizedId,
+      listId: movers.list?.id || listId,
+      supportedIdValues: "Use rank number or symbol from /api/market-data/movers",
+    };
+    throw error;
+  }
+
+  try {
+    const quote = item.symbol ? await fetchDetailedQuoteBySymbol(item.symbol) : null;
+
+    return {
+      ...normalizeMoverDetail({
+        item,
+        quote,
+        listId: movers.list.id,
+        list: movers.list,
+        region: movers.region,
+        source: quote ? "provider" : movers.source,
+      }),
+      parentSource: movers.source,
+      ...(movers.warning ? { warning: movers.warning } : {}),
+    };
+  } catch (error) {
+    return {
+      ...normalizeMoverDetail({
+        item,
+        quote: null,
+        listId: movers.list.id,
+        list: movers.list,
+        region: movers.region,
+        source: movers.source,
+      }),
+      parentSource: movers.source,
+      warning:
+        "Detailed quote request failed, returning market mover list item instead",
+    };
+  }
+};
 export const getTopShareMarketData = async ({
   period = "daily",
   count,
@@ -1465,4 +1928,9 @@ export const getMarketHomeData = async ({
     },
   };
 };
+
+
+
+
+
 

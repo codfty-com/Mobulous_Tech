@@ -264,7 +264,40 @@ Set a new password after OTP verification.
 
 ---
 
-## Market Data Routes â€” `src/routes/marketDataRoutes.js`
+## Asset Routes - `src/routes/assetsRoutes.js`
+
+### `GET /api/assets`
+Get asset categories for frontend screens.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `status` | `string` | all statuses | Optional filter: `available` or `coming_soon` |
+
+**Example:** `GET /api/assets`
+
+**Success `200`:**
+```json
+{
+  "success": true,
+  "message": "Assets fetched successfully",
+  "count": 8,
+  "data": [
+    {
+      "key": "stocks",
+      "name": "Stocks",
+      "status": "available",
+      "dataRoute": "/api/stocks",
+      "searchParam": "query"
+    }
+  ]
+}
+```
+
+---
+
+## Market Data Routes — `src/routes/marketDataRoutes.js`
 
 ### `GET /api/markets`
 Get the list of all supported market keys and their metadata.
@@ -279,6 +312,53 @@ Get the list of all supported market keys and their metadata.
     { "key": "sensex", "symbol": "^BSESN", "displayName": "SENSEX", "type": "INDEX", "exchange": "BSE", "country": "India" },
     { "key": "nasdaq", "symbol": "^IXIC", "displayName": "NASDAQ Composite", "type": "INDEX", "exchange": "NASDAQ", "country": "United States" },
     { "key": "hdfcbank", "symbol": "HDFCBANK.NS", "displayName": "HDFC Bank", "type": "EQUITY", "exchange": "NSE", "country": "India" }
+  ]
+}
+```
+
+---
+
+### `GET /api/stocks`
+Search stocks by name or symbol. Use this for dropdowns/search screens.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `query` or `search` | `string` | required | Stock name or symbol text, e.g. `hdfc bank`, `reliance`, `apple` |
+| `region` | `string` | `US` | Yahoo region code, e.g. `IN`, `US` |
+| `count` or `limit` | `number` | `10` | Maximum stock rows returned, capped at `25` |
+| `lang` | `string` | region language | Optional locale, e.g. `en-IN`, `en-US` |
+| `forceRefresh` | `boolean` | `false` | Skip cache and fetch from provider |
+
+**Example:** `GET /api/stocks?query=hdfc%20bank&region=IN&limit=10&lang=en-IN`
+
+**Success `200`:**
+```json
+{
+  "success": true,
+  "message": "Stocks fetched successfully",
+  "source": "provider",
+  "region": "IN",
+  "lang": "en-IN",
+  "query": "hdfc bank",
+  "total": 1,
+  "count": 1,
+  "limit": 10,
+  "data": [
+    {
+      "rank": 1,
+      "symbol": "HDFCBANK.NS",
+      "displayName": "HDFC Bank Limited",
+      "shortName": "HDFC BANK LTD",
+      "longName": "HDFC Bank Limited",
+      "type": "EQUITY",
+      "exchange": "NSI",
+      "exchangeCode": "NSI",
+      "currency": "INR",
+      "region": "IN",
+      "source": "yahoo-finance2"
+    }
   ]
 }
 ```
@@ -457,3 +537,4 @@ All error responses follow this structure:
 | `409` | Conflict (duplicate user/account) |
 | `500` | Internal Server Error |
 | `502` | Bad Gateway (Yahoo Finance upstream failure) |
+

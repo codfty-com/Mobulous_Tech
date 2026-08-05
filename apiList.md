@@ -24,6 +24,23 @@ Important: The app mounts routes both directly and under `/api`. The primary URL
 - Payload: Not required
 - Purpose: App liveness check.
 
+## 2A. Get Assets List
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/assets`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/assets`
+- Payload: Not required
+- Query params:
+
+| Parameter | Required | Default | Example |
+|---|---:|---|---|
+| `status` | No | all statuses | `available` or `coming_soon` |
+
+- Purpose: Returns asset categories for frontend screens: stocks, mutual funds, ETF, fixed deposit, metals, ULIP, cash, and others.
+- Default response includes all asset categories.
+- Use `status=available` to return only categories that already have data/search APIs.
+- Example local URL: `http://localhost:4500/api/assets`
+
 ## 3. Create User / Signup
 
 - Method: `POST`
@@ -199,6 +216,26 @@ Important: The app mounts routes both directly and under `/api`. The primary URL
 
 - Note: Current controller does not require `otp` in this payload.
 
+## 15A. Search Stocks
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/stocks`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks`
+- Payload: Not required
+- Query params:
+
+| Parameter | Required | Default | Example |
+|---|---:|---|---|
+| `query` or `search` | Yes | none | `hdfc bank` |
+| `region` | No | `US` | `IN` |
+| `count` or `limit` | No | `10`, max `25` | `10` |
+| `lang` | No | region language | `en-IN` |
+| `forceRefresh` | No | `false` | `true` |
+
+- Purpose: Searches Yahoo Finance stock symbols by company/share name and returns only equity results.
+- Example local URL: `http://localhost:4500/api/stocks?query=hdfc%20bank&region=IN&limit=10&lang=en-IN`
+- Example deployed URL: `https://mobulous-tech.vercel.app/api/stocks?query=reliance&region=IN&limit=10&lang=en-IN`
+
 ## 15. Get Supported Markets
 
 - Method: `GET`
@@ -316,6 +353,94 @@ Important: The app mounts routes both directly and under `/api`. The primary URL
 | `forceRefresh` | No | `false` | `true` |
 
 - Example local URL: `http://localhost:4500/api/market-data/movers?list=day_losers&region=IN&count=20&lang=en-IN`
+
+## 22A. Get Market Mover Full Detail By List And Id
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/market-data/movers/day_gainers/1`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/market-data/movers/day_gainers/1`
+- Payload: Not required
+- Path params:
+
+| Parameter | Required | Example |
+|---|---:|---|
+| `listId` | Yes | `day_gainers` |
+| `id` | Yes | `1` or `RELIANCE.NS` |
+
+- Query params:
+
+| Parameter | Required | Default | Example |
+|---|---:|---|---|
+| `region` | No | `US` | `IN` |
+| `count` | No | `10` | `20` |
+| `lang` | No | region language | `en-IN` |
+| `forceRefresh` | No | `false` | `true` |
+
+- Purpose: Returns one market mover with full details. The `id` can be the mover `rank` from the list response or the stock `symbol`.
+
+## 22B. Get Top 10 Gainers Full Detail List
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/market-data/top-gainers/details`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/market-data/top-gainers/details`
+- Payload: Not required
+- Query params:
+
+| Parameter | Required | Default | Example |
+|---|---:|---|---|
+| `ids` or `positions` or `ranks` | No | all top 10 | `1,2,3` |
+| `region` | No | `US` | `IN` |
+| `lang` | No | region language | `en-IN` |
+| `forceRefresh` | No | `false` | `true` |
+
+- Purpose: Returns the full-detail list of the current top 10 gainers.
+- If `ids` is omitted, it returns all current top 10 gainers with details.
+- If `ids` is provided, it accepts rank positions like `1,2,3` or symbols from the current top 10 list.
+## 22B. Get Top Gainer Full Detail By Id
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/market-data/top-gainers/1`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/market-data/top-gainers/1`
+- Payload: Not required
+- Path params:
+
+| Parameter | Required | Example |
+|---|---:|---|
+| `id` | Yes | `1` or `RELIANCE.NS` |
+
+- Query params:
+
+| Parameter | Required | Default | Example |
+|---|---:|---|---|
+| `region` | No | `US` | `IN` |
+| `count` | No | `10` | `20` |
+| `lang` | No | region language | `en-IN` |
+| `forceRefresh` | No | `false` | `true` |
+
+- Purpose: Returns one top gainer with full details by `rank` or `symbol`.
+
+## 22C. Get Top Loser Full Detail By Id
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/market-data/top-losers/1`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/market-data/top-losers/1`
+- Payload: Not required
+- Path params:
+
+| Parameter | Required | Example |
+|---|---:|---|
+| `id` | Yes | `1` or `RELIANCE.NS` |
+
+- Query params:
+
+| Parameter | Required | Default | Example |
+|---|---:|---|---|
+| `region` | No | `US` | `IN` |
+| `count` | No | `10` | `20` |
+| `lang` | No | region language | `en-IN` |
+| `forceRefresh` | No | `false` | `true` |
+
+- Purpose: Returns one top loser with full details by `rank` or `symbol`.
 
 ## 23. Get Top Share Markets
 
@@ -685,3 +810,5 @@ These are represented in `GET /api/market-data/home`, but do not have standalone
 - ETFs
 - IPO
 - Watchlist
+
+
