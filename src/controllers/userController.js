@@ -1,10 +1,11 @@
 import User from "../models/user.js";
 import bcrypt from "bcryptjs";
 import { randomInt } from "crypto";
+import { env } from "../config/env.js";
 import { sendEmail } from "../utils/sendEmail.js";
 
-const OTP_EXPIRY_MINUTES = 5;
-const LOGIN_REDIRECT_URL = process.env.LOGIN_REDIRECT_URL || "/login";
+const OTP_EXPIRY_MINUTES = env.otpExpiryMinutes;
+const LOGIN_REDIRECT_URL = env.loginRedirectUrl;
 const EMAIL_PASSWORD_METHOD = "email_password";
 const GOOGLE_METHOD = "google";
 
