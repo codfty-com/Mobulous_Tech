@@ -812,3 +812,238 @@ These are represented in `GET /api/market-data/home`, but do not have standalone
 - Watchlist
 
 
+## 56. Add Stock to Collection
+
+- Method: `POST`
+- Local URL: `http://localhost:4500/api/stocks`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks`
+- Headers: 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <JWT_TOKEN>`
+- Payload:
+
+```json
+{
+  "symbol": "RELIANCE.NS",
+  "name": "Reliance Industries Limited",
+  "quantity": 10,
+  "purchasePrice": 2500.50,
+  "currentPrice": 2650.00,
+  "exchange": "NSE",
+  "sector": "Energy",
+  "currency": "INR",
+  "purchaseDate": "2026-01-15",
+  "marketCap": "Large Cap",
+  "dividendYield": 0.8,
+  "peRatio": 12.5,
+  "notes": "Long term investment for dividend income",
+  "tags": ["blue-chip", "energy", "dividend"],
+  "watchlist": true,
+  "alerts": {
+    "enabled": true,
+    "targetPrice": 3000.00,
+    "stopLoss": 2200.00
+  }
+}
+```
+
+- Required fields: `symbol`, `name`, `quantity`
+- Optional fields: All others
+- Supported market caps: `Large Cap`, `Mid Cap`, `Small Cap`, `Micro Cap`
+
+## 57. Get User's Stock Collection
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/stocks`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks`
+- Headers: `Authorization: Bearer <JWT_TOKEN>`
+- Payload: Not required
+- Query params:
+
+| Parameter | Required | Default | Example |
+|---|---:|---|---|
+| `symbol` | No | all | `RELIANCE` (partial match) |
+| `sector` | No | all | `Energy` (partial match) |
+| `exchange` | No | all | `NSE` |
+| `watchlist` | No | all | `true` or `false` |
+| `tags` | No | all | `blue-chip,dividend` |
+| `page` | No | `1` | `1` |
+| `limit` | No | `50`, max `100` | `20` |
+| `sortBy` | No | `createdAt` | `symbol`, `name`, `quantity`, `purchasePrice`, `currentPrice`, `sector`, `purchaseDate` |
+| `sortOrder` | No | `desc` | `asc` or `desc` |
+
+- Example local URL: `http://localhost:4500/api/stocks?sector=Energy&watchlist=true&page=1&limit=20&sortBy=currentPrice&sortOrder=desc`
+- Response includes: stocks array, pagination info, and portfolio summary
+
+## 58. Get Portfolio Summary
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/stocks/summary`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks/summary`
+- Headers: `Authorization: Bearer <JWT_TOKEN>`
+- Payload: Not required
+- Purpose: Returns overall portfolio statistics and breakdown by sector
+- Response includes: totalInvestment, totalCurrentValue, totalProfitLoss, totalProfitLossPercentage, sector-wise breakdown
+
+## 59. Get Watchlist Stocks
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/stocks/watchlist`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks/watchlist`
+- Headers: `Authorization: Bearer <JWT_TOKEN>`
+- Payload: Not required
+- Query params:
+
+| Parameter | Required | Default | Example |
+|---|---:|---|---|
+| `page` | No | `1` | `1` |
+| `limit` | No | `20`, max `100` | `10` |
+| `sortBy` | No | `lastUpdated` | `symbol`, `currentPrice`, `purchaseDate` |
+| `sortOrder` | No | `desc` | `asc` or `desc` |
+
+- Purpose: Returns only stocks marked as watchlist items
+
+## 60. Get Single Stock Details
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/stocks/:id`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks/:id`
+- Example local URL: `http://localhost:4500/api/stocks/64abc123abc123abc123abcd`
+- Headers: `Authorization: Bearer <JWT_TOKEN>`
+- Payload: Not required
+
+## 61. Update Stock Details
+
+- Method: `PUT`
+- Local URL: `http://localhost:4500/api/stocks/:id`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks/:id`
+- Example local URL: `http://localhost:4500/api/stocks/64abc123abc123abc123abcd`
+- Headers: 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <JWT_TOKEN>`
+- Payload (all fields optional):
+
+```json
+{
+  "quantity": 15,
+  "currentPrice": 2700.00,
+  "sector": "Oil & Gas",
+  "notes": "Increased position due to positive outlook",
+  "tags": ["blue-chip", "energy", "dividend", "growth"],
+  "watchlist": false,
+  "alerts": {
+    "enabled": true,
+    "targetPrice": 3200.00,
+    "stopLoss": 2400.00
+  }
+}
+```
+
+## 62. Bulk Update Stock Prices
+
+- Method: `PATCH`
+- Local URL: `http://localhost:4500/api/stocks/prices`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks/prices`
+- Headers: 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <JWT_TOKEN>`
+- Payload:
+
+```json
+{
+  "updates": [
+    {
+      "id": "64abc123abc123abc123abcd",
+      "currentPrice": 2700.00
+    },
+    {
+      "id": "64abc456def456def456def4",
+      "currentPrice": 1680.50
+    }
+  ]
+}
+```
+
+- Maximum 50 stocks per request
+- Each update requires: `id` and `currentPrice`
+
+## 63. Add/Remove Stock from Watchlist
+
+- Method: `PATCH`
+- Local URL: `http://localhost:4500/api/stocks/:id/watchlist`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks/:id/watchlist`
+- Example local URL: `http://localhost:4500/api/stocks/64abc123abc123abc123abcd/watchlist`
+- Headers: 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <JWT_TOKEN>`
+- Payload:
+
+```json
+{
+  "watchlist": true
+}
+```
+
+- Purpose: Toggle watchlist status for a stock
+
+## 64. Set Price Alerts for Stock
+
+- Method: `PATCH`
+- Local URL: `http://localhost:4500/api/stocks/:id/alerts`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks/:id/alerts`
+- Example local URL: `http://localhost:4500/api/stocks/64abc123abc123abc123abcd/alerts`
+- Headers: 
+  - `Content-Type: application/json`
+  - `Authorization: Bearer <JWT_TOKEN>`
+- Payload:
+
+```json
+{
+  "enabled": true,
+  "targetPrice": 3000.00,
+  "stopLoss": 2200.00
+}
+```
+
+- All fields optional, at least one required
+- Purpose: Set target price and stop loss alerts
+
+## 65. Delete Stock from Collection
+
+- Method: `DELETE`
+- Local URL: `http://localhost:4500/api/stocks/:id`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks/:id`
+- Example local URL: `http://localhost:4500/api/stocks/64abc123abc123abc123abcd`
+- Headers: `Authorization: Bearer <JWT_TOKEN>`
+- Payload: Not required
+- Purpose: Permanently removes stock from user's collection
+
+---
+
+## Stock Management Features
+
+### Automatic Calculations
+- **Total Investment:** `purchasePrice × quantity`
+- **Current Value:** `currentPrice × quantity`  
+- **Profit/Loss:** `currentValue - totalInvestment`
+- **Profit/Loss %:** `((currentValue - totalInvestment) / totalInvestment) × 100`
+
+### Watchlist Management
+- Add/remove stocks from watchlist
+- Get watchlist-only view
+- Filter by watchlist status
+
+### Price Alerts
+- Set target price alerts
+- Set stop loss alerts
+- Enable/disable alerts per stock
+
+### Portfolio Analytics
+- Overall portfolio value and P&L
+- Sector-wise breakdown
+- Performance tracking
+
+### Data Validation
+- Prevents duplicate stocks per user (same symbol)
+- Validates stock symbols, prices, quantities
+- Supports various market caps and sectors

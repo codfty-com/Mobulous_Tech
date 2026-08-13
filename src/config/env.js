@@ -43,7 +43,9 @@ export const env = {
     2,
   ),
   jwtSecret: process.env.JWT_SECRET?.trim() || "",
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN?.trim() || "1d",
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN?.trim() || "15m",
+  jwtRefreshSecret: process.env.JWT_REFRESH_SECRET?.trim() || "",
+  jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN?.trim() || "7d",
   emailUser: process.env.EMAIL_USER?.trim() || "",
   emailPass: process.env.EMAIL_PASS?.trim() || "",
   mutualFundApiBaseUrl:

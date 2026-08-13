@@ -20,9 +20,11 @@ import {
   refreshMarketData,
   searchStocks,
 } from "../controllers/marketData.controller.js";
+import { authenticateRequest } from "../middlewares/jwt.js";
 
 const router = express.Router();
 
+// Public routes - No authentication required
 router.get("/markets", getAvailableMarkets);
 router.get("/stocks", searchStocks);
 router.get("/market-trend-lists", getAvailableMarketCollections);
@@ -38,11 +40,13 @@ router.get("/market-data/top-shares/:period", getTopShareMarkets);
 router.get("/market-data/overview", getMarketDataOverview);
 router.get("/market-data/home", getMarketHome);
 router.get("/market-data/:marketKey", getMarketDataByKey);
-router.post("/market-data/refresh", refreshMarketData);
 router.get("/market-news", getMarketNews);
 router.get("/market-news/live", getLiveMarketNews);
 router.get("/market-news/related", getRelatedMarketNews);
 router.get("/market-news/symbol/:symbol", getMarketNewsBySymbol);
+
+// Protected routes - Authentication required
+router.post("/market-data/refresh", authenticateRequest, refreshMarketData);
 
 export default router;
 

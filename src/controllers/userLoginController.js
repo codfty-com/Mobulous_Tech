@@ -1,6 +1,7 @@
 import User from "../models/user.js";
 import bcrypt from "bcryptjs";
 import { verifyGoogleIdToken } from "../services/googleAuth.service.js";
+import { generateTokenPair } from "../services/jwt.service.js";
 
 const EMAIL_PASSWORD_METHOD = "email_password";
 const GOOGLE_METHOD = "google";
@@ -83,10 +84,21 @@ export const loginUser = async (req, res) => {
     user.lastLoginMethod = EMAIL_PASSWORD_METHOD;
     await user.save();
 
+    // Generate access and refresh tokens
+    const deviceInfo = {
+      userAgent: req.get("user-agent") || "Unknown",
+      ip: req.ip || req.connection.remoteAddress || "Unknown",
+    };
+
+    const tokens = await generateTokenPair(user, deviceInfo);
+
     return res.status(200).json({
       success: true,
       message: "Login successful",
-      data: sanitizeUser(user),
+      data: {
+        user: sanitizeUser(user),
+        ...tokens,
+      },
     });
   } catch (error) {
     console.error(error, "log in failed");
@@ -150,12 +162,23 @@ export const loginWithGoogle = async (req, res) => {
 
     await user.save();
 
+    // Generate access and refresh tokens
+    const deviceInfo = {
+      userAgent: req.get("user-agent") || "Unknown",
+      ip: req.ip || req.connection.remoteAddress || "Unknown",
+    };
+
+    const tokens = await generateTokenPair(user, deviceInfo);
+
     return res.status(isNewUser ? 201 : 200).json({
       success: true,
       message: isNewUser
         ? "Google login successful. New account created."
         : "Google login successful",
-      data: sanitizeUser(user),
+      data: {
+        user: sanitizeUser(user),
+        ...tokens,
+      },
     });
   } catch (error) {
     console.error("Google login failed:", error);

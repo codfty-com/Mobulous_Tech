@@ -1,7 +1,12 @@
-import jwt from "jsonwebtoken";
+import { verifyAccessToken } from "../services/jwt.service.js";
 import { env } from "../config/env.js";
 import { sendError } from "../utils/http.js";
 
+/**
+ * Middleware to authenticate requests using JWT access tokens
+ * Expects: Authorization: Bearer <access_token>
+ * Sets req.user with decoded token payload
+ */
 export const authenticateRequest = (req, res, next) => {
   if (!env.jwtSecret) {
     return sendError(res, {
@@ -16,17 +21,57 @@ export const authenticateRequest = (req, res, next) => {
   if (scheme !== "Bearer" || !token) {
     return sendError(res, {
       statusCode: 401,
-      message: "Bearer token is required",
+      message: "Authorization header must be: Bearer <access_token>",
     });
   }
 
   try {
-    req.user = jwt.verify(token, env.jwtSecret);
+    // Verify and decode the access token
+    const decoded = verifyAccessToken(token);
+
+    // Attach user info to request
+    req.user = {
+      userId: decoded.userId,
+      email: decoded.email,
+      name: decoded.name,
+      admin: decoded.admin || false,
+    };
+
     return next();
   } catch (error) {
+    // Handle specific token errors
+    const message = error.message.includes("expired")
+      ? "Access token has expired. Please refresh your token."
+      : error.message.includes("invalid")
+      ? "Invalid access token. Please login again."
+      : "Authentication failed";
+
     return sendError(res, {
       statusCode: 401,
-      message: "Invalid or expired token",
+      message,
     });
   }
 };
+
+/**
+ * Optional middleware to check if user is admin
+ * Must be used after authenticateRequest
+ */
+export const requireAdmin = (req, res, next) => {
+  if (!req.user) {
+    return sendError(res, {
+      statusCode: 401,
+      message: "Authentication required",
+    });
+  }
+
+  if (!req.user.admin) {
+    return sendError(res, {
+      statusCode: 403,
+      message: "Admin access required",
+    });
+  }
+
+  return next();
+};
+

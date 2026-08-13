@@ -9,10 +9,11 @@ import marketDataRoutes from "./routes/marketDataRoutes.js";
 import mutualFundDataRoutes from "./routes/mutualFundDataRoutes.js";
 import assetsRoutes from "./routes/assetsRoutes.js";
 import docsRoutes from "./routes/docsRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
+import stockRoutes from "./routes/stockRoutes.js";
 
 const app = express();
 const apiRouter = express.Router();
-// comment
 
 const trimTrailingPathWhitespace = (url) => {
   const queryStart = url.indexOf("?");
@@ -79,6 +80,8 @@ apiRouter.use(userRoutes);
 apiRouter.use(resetPassRoutes);
 apiRouter.use(marketDataRoutes);
 apiRouter.use(mutualFundDataRoutes);
+apiRouter.use(authRoutes);
+apiRouter.use(stockRoutes);
 
 app.use(apiRouter);
 app.use("/api", apiRouter);
