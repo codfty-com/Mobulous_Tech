@@ -26,7 +26,12 @@ const router = express.Router();
 
 // Public routes - No authentication required
 router.get("/markets", getAvailableMarkets);
-router.get("/stocks", searchStocks);
+// Keep the public symbol-search URL while allowing authenticated portfolio
+// collection requests to continue to the stock router below.
+router.get("/stocks", (req, res, next) => {
+  if (req.query.query || req.query.search) return searchStocks(req, res, next);
+  return next();
+});
 router.get("/market-trend-lists", getAvailableMarketCollections);
 router.get("/market-data", getAllMarketData);
 router.get("/market-data/trending", getTrendingSymbols);

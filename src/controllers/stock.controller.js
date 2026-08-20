@@ -2,6 +2,9 @@ import UserStock from "../models/userStock.js";
 import { sendSuccess, sendError } from "../utils/http.js";
 import mongoose from "mongoose";
 
+const bodyFor = (req) => req.validated?.body || req.body;
+const queryFor = (req) => req.validated?.query || req.query;
+
 /**
  * Add a new stock (POST)
  * POST /api/stocks
@@ -12,7 +15,7 @@ export const addStock = async (req, res) => {
     
     const stockData = {
       userId,
-      ...req.body,
+      ...bodyFor(req),
       lastUpdated: new Date(),
     };
 
@@ -67,7 +70,7 @@ export const getStocks = async (req, res) => {
       limit = 50,
       sortBy = "createdAt",
       sortOrder = "desc",
-    } = req.query;
+    } = queryFor(req);
 
     // Build filter
     const filter = { userId };
@@ -184,7 +187,7 @@ export const updateStock = async (req, res) => {
     }
 
     // Don't allow userId to be changed
-    const updateData = { ...req.body };
+    const updateData = { ...bodyFor(req) };
     delete updateData.userId;
     updateData.lastUpdated = new Date();
 
@@ -309,7 +312,7 @@ export const getPortfolioSummary = async (req, res) => {
 export const getWatchlist = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { page = 1, limit = 20, sortBy = "lastUpdated", sortOrder = "desc" } = req.query;
+    const { page = 1, limit = 20, sortBy = "lastUpdated", sortOrder = "desc" } = queryFor(req);
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const sortOptions = {};
@@ -349,7 +352,7 @@ export const getWatchlist = async (req, res) => {
 export const bulkUpdatePrices = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { updates } = req.body; // Array of { id, currentPrice }
+    const { updates } = bodyFor(req); // Array of { id, currentPrice }
 
     if (!Array.isArray(updates) || updates.length === 0) {
       return sendError(res, {
@@ -403,7 +406,7 @@ export const toggleWatchlist = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id } = req.params;
-    const { watchlist } = req.body; // boolean
+    const { watchlist } = bodyFor(req); // boolean
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return sendError(res, {
@@ -453,7 +456,7 @@ export const setAlerts = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id } = req.params;
-    const { enabled, targetPrice, stopLoss } = req.body;
+    const { enabled, targetPrice, stopLoss } = bodyFor(req);
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return sendError(res, {

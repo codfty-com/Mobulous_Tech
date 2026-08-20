@@ -45,6 +45,12 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Set only by trusted server-side administration workflows. This field is
+    // intentionally never accepted from public signup or profile updates.
+    admin: {
+      type: Boolean,
+      default: false,
+    },
     otp: String,
     otpExpiry: Date,
   },

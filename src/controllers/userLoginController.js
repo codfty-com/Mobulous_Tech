@@ -33,15 +33,7 @@ const sanitizeUser = (user) => {
 
 export const loginUser = async (req, res) => {
   try {
-    const { password } = req.body;
-    const email = req.body.email?.trim().toLowerCase();
-
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required",
-      });
-    }
+    const { email, password } = req.validated?.body || req.body;
 
     const user = await User.findOne({ email });
 
@@ -112,14 +104,7 @@ export const loginUser = async (req, res) => {
 
 export const loginWithGoogle = async (req, res) => {
   try {
-    const idToken = req.body.idToken?.trim();
-
-    if (!idToken) {
-      return res.status(400).json({
-        success: false,
-        message: "Google idToken is required",
-      });
-    }
+    const { idToken } = req.validated?.body || req.body;
 
     const googleProfile = await verifyGoogleIdToken(idToken);
 

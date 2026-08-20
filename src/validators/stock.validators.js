@@ -11,6 +11,15 @@ const normalizeNumber = (value) => {
   return isNaN(num) ? undefined : num;
 };
 
+const normalizeBoolean = (value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    if (value.toLowerCase() === "true") return true;
+    if (value.toLowerCase() === "false") return false;
+  }
+  return undefined;
+};
+
 const normalizeDate = (value) => {
   if (!value) return undefined;
   const date = new Date(value);
@@ -55,7 +64,7 @@ export const addStockSchema = {
     const peRatio = normalizeNumber(body.peRatio);
     const notes = normalizeString(body.notes);
     const tags = normalizeTags(body.tags);
-    const watchlist = body.watchlist !== undefined ? Boolean(body.watchlist) : false;
+    const watchlist = body.watchlist === undefined ? false : normalizeBoolean(body.watchlist);
 
     // Alerts object
     const alerts = {};
@@ -112,6 +121,10 @@ export const addStockSchema = {
 
     if (notes && notes.length > 500) {
       errors.push("Notes cannot exceed 500 characters");
+    }
+
+    if (watchlist === undefined) {
+      errors.push("Watchlist must be a boolean");
     }
 
     if (alerts.targetPrice !== undefined && alerts.targetPrice < 0) {
@@ -279,7 +292,9 @@ export const updateStockSchema = {
     }
 
     if (body.watchlist !== undefined) {
-      data.watchlist = Boolean(body.watchlist);
+      const watchlist = normalizeBoolean(body.watchlist);
+      if (watchlist === undefined) errors.push("Watchlist must be a boolean");
+      else data.watchlist = watchlist;
     }
 
     if (body.alerts !== undefined && typeof body.alerts === "object") {
@@ -429,6 +444,11 @@ export const bulkUpdatePricesSchema = {
         return;
       }
 
+      if (!/^[a-f\d]{24}$/i.test(String(update.id))) {
+        errors.push(`updates[${index}].id must be a valid stock ID`);
+        return;
+      }
+
       const currentPrice = normalizeNumber(update.currentPrice);
 
       if (currentPrice === undefined) {
@@ -460,9 +480,12 @@ export const toggleWatchlistSchema = {
       return buildResult(errors, {});
     }
 
-    const data = {
-      watchlist: Boolean(body.watchlist),
-    };
+    const watchlist = normalizeBoolean(body.watchlist);
+    if (watchlist === undefined) {
+      errors.push("Watchlist must be a boolean");
+      return buildResult(errors, {});
+    }
+    const data = { watchlist };
 
     return buildResult(errors, data);
   },
@@ -474,7 +497,9 @@ export const setAlertsSchema = {
     const data = {};
 
     if (body.enabled !== undefined) {
-      data.enabled = Boolean(body.enabled);
+      const enabled = normalizeBoolean(body.enabled);
+      if (enabled === undefined) errors.push("Enabled must be a boolean");
+      else data.enabled = enabled;
     }
 
     if (body.targetPrice !== undefined) {

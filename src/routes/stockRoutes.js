@@ -25,7 +25,7 @@ import {
 const router = express.Router();
 
 // All stock routes require authentication
-router.use(authenticateRequest);
+router.use("/stocks", authenticateRequest);
 
 /**
  * @route   POST /api/stocks

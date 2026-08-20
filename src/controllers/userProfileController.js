@@ -18,6 +18,9 @@ const getRequestUserId = (req) => {
   return id;
 };
 
+const canAccessProfile = (req, userId) =>
+  req.user?.admin || String(req.user?.userId) === String(userId);
+
 const parsePhone = (value) => {
   if (value === undefined) return { hasValue: false };
   if (value === null || value === "") return { hasValue: true, value: undefined };
@@ -119,6 +122,10 @@ export const getUserProfileById = async (req, res) => {
       });
     }
 
+    if (!canAccessProfile(req, _id)) {
+      return sendError(res, { statusCode: 403, message: "You can only access your own profile" });
+    }
+
     const user = await User.findById(_id).select(SAFE_USER_SELECT);
 
     if (!user) {
@@ -151,6 +158,10 @@ export const updateUserProfileById = async (req, res) => {
         statusCode: 400,
         message: "Invalid user _id",
       });
+    }
+
+    if (!canAccessProfile(req, _id)) {
+      return sendError(res, { statusCode: 403, message: "You can only update your own profile" });
     }
 
     const { update, errors } = buildProfileUpdate(req.body);
