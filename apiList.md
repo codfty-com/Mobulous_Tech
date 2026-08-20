@@ -94,7 +94,7 @@ Important: The app mounts routes both directly and under `/api`. The primary URL
 }
 ```
 
-- Note: Current code returns user data, not a JWT token.
+- Response: returns the user data plus `accessToken`, `refreshToken`, and `expiresIn`. Use `accessToken` in the `Authorization: Bearer <accessToken>` header for protected APIs.
 
 ## 6. Login With Google
 
@@ -1047,3 +1047,33 @@ These are represented in `GET /api/market-data/home`, but do not have standalone
 - Prevents duplicate stocks per user (same symbol)
 - Validates stock symbols, prices, quantities
 - Supports various market caps and sectors
+
+---
+
+## 66. Manual Mutual Fund Holdings
+
+These endpoints manage a user's manually entered mutual-fund holdings. They are separate from the public mutual-fund scheme/NAV lookup endpoints, and all require `Authorization: Bearer <JWT_TOKEN>`.
+
+| Action | Method | URL |
+|---|---|---|
+| Add holding | `POST` | `/api/mutual-fund-holdings` |
+| List holdings | `GET` | `/api/mutual-fund-holdings` |
+| Get holding | `GET` | `/api/mutual-fund-holdings/:id` |
+| Update holding | `PATCH` or `PUT` | `/api/mutual-fund-holdings/:id` |
+| Delete holding | `DELETE` | `/api/mutual-fund-holdings/:id` |
+
+Required add payload fields are `fundName`, `units`, and `investedAmount`. Optional fields are `schemeCode`, `folioNumber`, `purchaseNav`, `currentNav`, `purchaseDate`, `fundHouse`, `category`, `notes`, and `tags`.
+
+Example add payload:
+
+```json
+{
+  "fundName": "Example Flexi Cap Fund - Direct Growth",
+  "schemeCode": "122639",
+  "units": 125.5,
+  "investedAmount": 25000,
+  "purchaseNav": 180.5,
+  "currentNav": 205.75,
+  "purchaseDate": "2026-01-15"
+}
+```

@@ -1,5 +1,5 @@
 import express from "express";
-import { authenticateRequest } from "../middlewares/jwt.js";
+import { authenticateRequest, requireAdmin } from "../middlewares/jwt.js";
 import {
   refreshToken,
   revokeToken,
@@ -43,6 +43,6 @@ router.get("/auth/me", authenticateRequest, getCurrentUser);
  * @desc    Clean up expired tokens (maintenance endpoint)
  * @access  Public (should be restricted in production)
  */
-router.post("/auth/cleanup-tokens", cleanupTokens);
+router.post("/auth/cleanup-tokens", authenticateRequest, requireAdmin, cleanupTokens);
 
 export default router;

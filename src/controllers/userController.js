@@ -43,15 +43,7 @@ export const createUser = async (req, res) => {
   try {
     console.log("Incoming signup request");
 
-    const { name, phone, password } = req.body;
-    const email = req.body.email?.trim().toLowerCase();
-
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Name, email and password are required",
-      });
-    }
+    const { name, email, phone, password } = req.validated?.body || req.body;
 
     const existingUser = await User.findOne({ email });
 
@@ -134,15 +126,7 @@ export const createUser = async (req, res) => {
 
 export const verifySignupOtp = async (req, res) => {
   try {
-    const email = req.body.email?.trim().toLowerCase();
-    const otp = req.body.otp?.toString();
-
-    if (!email || !otp) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and OTP are required",
-      });
-    }
+    const { email, otp } = req.validated?.body || req.body;
 
     const user = await User.findOne({ email });
 

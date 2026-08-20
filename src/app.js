@@ -1,6 +1,8 @@
 import express from "express";
 import "dotenv/config";
 import cors from "cors";
+import helmet from "helmet";
+import morgan from "morgan";
 import connectDB from "./config/db.js";
 import { env, getCorsOptions } from "./config/env.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -11,6 +13,7 @@ import assetsRoutes from "./routes/assetsRoutes.js";
 import docsRoutes from "./routes/docsRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import stockRoutes from "./routes/stockRoutes.js";
+import mutualFundHoldingRoutes from "./routes/mutualFundHoldingRoutes.js";
 
 const app = express();
 const apiRouter = express.Router();
@@ -29,6 +32,11 @@ app.use((req, res, next) => {
 });
 
 app.use(cors(getCorsOptions()));
+app.use(helmet());
+
+if (!env.isProduction) {
+  app.use(morgan("dev"));
+}
 
 app.use(express.json({ limit: env.requestBodyLimit, strict: false }));
 app.use(express.urlencoded({ extended: true }));
@@ -82,6 +90,7 @@ apiRouter.use(marketDataRoutes);
 apiRouter.use(mutualFundDataRoutes);
 apiRouter.use(authRoutes);
 apiRouter.use(stockRoutes);
+apiRouter.use(mutualFundHoldingRoutes);
 
 app.use(apiRouter);
 app.use("/api", apiRouter);
@@ -102,11 +111,18 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error("Global Error:", err);
+  if (err instanceof SyntaxError && "body" in err) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid JSON request body",
+    });
+  }
 
-  res.status(500).json({
+  console.error("Global Error:", err);
+  return res.status(err.statusCode || 500).json({
     success: false,
-    message: err.message || "Internal Server Error",
+    message: err.statusCode ? err.message : "Internal Server Error",
+    ...(err.details ? { details: err.details } : {}),
   });
 });
 

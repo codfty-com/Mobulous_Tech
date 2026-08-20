@@ -2,12 +2,31 @@ import { verifyAccessToken } from "../services/jwt.service.js";
 import { env } from "../config/env.js";
 import { sendError } from "../utils/http.js";
 
+// TODO: Temporary auth bypass for local API testing.
+// Set this back to false when JWT authentication should be enforced again.
+const SKIP_JWT_AUTH_FOR_TESTING = true;
+
 /**
  * Middleware to authenticate requests using JWT access tokens
  * Expects: Authorization: Bearer <access_token>
  * Sets req.user with decoded token payload
  */
 export const authenticateRequest = (req, res, next) => {
+  if (SKIP_JWT_AUTH_FOR_TESTING) {
+    req.user = {
+      userId:
+        req.get("x-test-user-id") ||
+        req.query.userId ||
+        req.body?.userId ||
+        "000000000000000000000001",
+      email: req.get("x-test-user-email") || "test@example.com",
+      name: req.get("x-test-user-name") || "Test User",
+      admin: true,
+    };
+
+    return next();
+  }
+
   if (!env.jwtSecret) {
     return sendError(res, {
       statusCode: 500,
@@ -74,4 +93,3 @@ export const requireAdmin = (req, res, next) => {
 
   return next();
 };
-

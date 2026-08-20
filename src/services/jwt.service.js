@@ -30,7 +30,7 @@ export const generateAccessToken = (payload) => {
 
 /**
  * Generate Refresh Token (long-lived)
- * @param {Object} payload - { userId, email }
+ * @param {Object} payload - { userId, email, name, admin }
  * @returns {string} JWT refresh token
  */
 export const generateRefreshToken = (payload) => {
@@ -44,6 +44,8 @@ export const generateRefreshToken = (payload) => {
   const tokenPayload = {
     userId: payload.userId,
     email: payload.email,
+    name: payload.name,
+    admin: payload.admin || false,
     type: "refresh",
     jti, // JWT ID for token tracking
   };
