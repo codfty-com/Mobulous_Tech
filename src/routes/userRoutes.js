@@ -31,10 +31,12 @@ router.post("/verify-email-otp", validateRequest(verifySignupOtpSchema), verifyS
 router.post("/login-user", validateRequest(loginUserSchema), loginUser);
 router.post("/login-google", validateRequest(loginWithGoogleSchema), loginWithGoogle);
 
+// Admin user routes - Authentication required
+router.get("/admin/users", authenticateRequest, requireAdmin, getUsers);
+router.get("/admin/users/:_id", authenticateRequest, requireAdmin, getUserProfileById);
+router.delete("/admin/users/:_id", authenticateRequest, requireAdmin, deleteUserProfileById);
+
 // Protected routes - Authentication required
-router.get("/users", authenticateRequest, requireAdmin, getUsers); // Admin only
-router.get("/users/:_id", authenticateRequest, getUserProfileById);
 router.patch("/users/:_id", authenticateRequest, updateUserProfileById);
-router.delete("/users/:_id", authenticateRequest, requireAdmin, deleteUserProfileById); // Admin only
 
 export default router;
