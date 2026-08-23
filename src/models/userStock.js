@@ -20,6 +20,11 @@ const userStockSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    icon: {
+      type: String,
+      trim: true,
+      maxlength: [500, "Icon URL cannot exceed 500 characters"],
+    },
     quantity: {
       type: Number,
       required: true,
@@ -52,6 +57,17 @@ const userStockSchema = new mongoose.Schema(
     purchaseDate: {
       type: Date,
       default: Date.now,
+    },
+    transactionDate: {
+      type: Date,
+      default: Date.now,
+    },
+    transactionType: {
+      type: String,
+      enum: ["buy", "sell"],
+      default: "buy",
+      lowercase: true,
+      trim: true,
     },
     marketCap: {
       type: String,
@@ -100,11 +116,11 @@ const userStockSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Compound indexes for efficient queries
-userStockSchema.index({ userId: 1, symbol: 1 }, { unique: true }); // Prevent duplicate stocks per user
+userStockSchema.index({ userId: 1, symbol: 1 });
 userStockSchema.index({ userId: 1, watchlist: 1 });
 userStockSchema.index({ userId: 1, sector: 1 });
 userStockSchema.index({ userId: 1, exchange: 1 });
@@ -112,15 +128,19 @@ userStockSchema.index({ symbol: 1, exchange: 1 });
 
 // Virtual for calculating total investment
 userStockSchema.virtual("totalInvestment").get(function () {
-  if (this.purchasePrice && this.quantity) {
+  if (this.purchasePrice !== undefined && this.quantity !== undefined) {
     return this.purchasePrice * this.quantity;
   }
   return null;
 });
 
+userStockSchema.virtual("totalValue").get(function () {
+  return this.totalInvestment;
+});
+
 // Virtual for calculating current value
 userStockSchema.virtual("currentValue").get(function () {
-  if (this.currentPrice && this.quantity) {
+  if (this.currentPrice !== undefined && this.quantity !== undefined) {
     return this.currentPrice * this.quantity;
   }
   return null;
@@ -130,7 +150,7 @@ userStockSchema.virtual("currentValue").get(function () {
 userStockSchema.virtual("profitLoss").get(function () {
   const investment = this.totalInvestment;
   const current = this.currentValue;
-  if (investment && current) {
+  if (investment !== null && current !== null) {
     return current - investment;
   }
   return null;
@@ -187,13 +207,15 @@ userStockSchema.statics.getUserPortfolioValue = async function (userId) {
   ];
 
   const result = await this.aggregate(pipeline);
-  return result[0] || {
-    totalInvestment: 0,
-    totalCurrentValue: 0,
-    totalStocks: 0,
-    totalProfitLoss: 0,
-    totalProfitLossPercentage: 0,
-  };
+  return (
+    result[0] || {
+      totalInvestment: 0,
+      totalCurrentValue: 0,
+      totalStocks: 0,
+      totalProfitLoss: 0,
+      totalProfitLossPercentage: 0,
+    }
+  );
 };
 
 // Static method to get stocks by sector

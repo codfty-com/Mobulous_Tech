@@ -2,6 +2,7 @@ export const ASSET_CATEGORIES = [
   {
     key: "stocks",
     name: "Stocks",
+    icon: "https://api.iconify.design/lucide:chart-candlestick.svg?color=%23156ff7",
     description: "Company shares listed on stock exchanges.",
     status: "available",
     dataRoute: "/api/stocks",
@@ -11,6 +12,7 @@ export const ASSET_CATEGORIES = [
   {
     key: "mutual_funds",
     name: "Mutual Funds",
+    icon: "https://api.iconify.design/lucide:chart-pie.svg?color=%2317a673",
     description: "Mutual fund schemes with NAV data.",
     status: "available",
     dataRoute: "/api/mutual-funds",
@@ -20,6 +22,7 @@ export const ASSET_CATEGORIES = [
   {
     key: "etf",
     name: "ETF",
+    icon: "https://api.iconify.design/lucide:layers-3.svg?color=%237c3aed",
     description: "Exchange-traded funds.",
     status: "coming_soon",
     dataRoute: null,
@@ -29,6 +32,7 @@ export const ASSET_CATEGORIES = [
   {
     key: "fixed_deposit",
     name: "Fixed Deposit",
+    icon: "https://api.iconify.design/lucide:landmark.svg?color=%23b7791f",
     description: "Bank and NBFC fixed deposit products.",
     status: "coming_soon",
     dataRoute: null,
@@ -38,6 +42,7 @@ export const ASSET_CATEGORIES = [
   {
     key: "metals",
     name: "Metals",
+    icon: "https://api.iconify.design/lucide:gem.svg?color=%239ca3af",
     description: "Precious metals like gold and silver.",
     status: "coming_soon",
     dataRoute: null,
@@ -47,6 +52,7 @@ export const ASSET_CATEGORIES = [
   {
     key: "ulip",
     name: "ULIP",
+    icon: "https://api.iconify.design/lucide:shield-check.svg?color=%23059669",
     description: "Unit linked insurance plans.",
     status: "coming_soon",
     dataRoute: null,
@@ -56,6 +62,7 @@ export const ASSET_CATEGORIES = [
   {
     key: "cash",
     name: "Cash",
+    icon: "https://api.iconify.design/lucide:wallet.svg?color=%232f855a",
     description: "Cash balance or liquid holdings.",
     status: "coming_soon",
     dataRoute: null,
@@ -65,6 +72,7 @@ export const ASSET_CATEGORIES = [
   {
     key: "others",
     name: "Others",
+    icon: "https://api.iconify.design/lucide:package.svg?color=%234b5563",
     description: "Other assets not covered by the listed categories.",
     status: "coming_soon",
     dataRoute: null,

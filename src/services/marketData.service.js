@@ -32,7 +32,7 @@ const MARKET_COLLECTION_CACHE_MINUTES = Number(
     2,
 );
 
-export const DEFAULT_MARKET_REGION = "US";
+export const DEFAULT_MARKET_REGION = "IN";
 export const DEFAULT_MARKET_COLLECTION_COUNT = 10;
 export const HOME_MARKET_INDEX_KEYS = [
   "nifty",
@@ -171,7 +171,9 @@ const toNumberOrNull = (value) =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
 
 const normalizeRegion = (value) =>
-  String(value || DEFAULT_MARKET_REGION).trim().toUpperCase();
+  String(value || DEFAULT_MARKET_REGION)
+    .trim()
+    .toUpperCase();
 
 const normalizeCount = (value, fallback = DEFAULT_MARKET_COLLECTION_COUNT) => {
   const parsed = Number(value);
@@ -200,7 +202,10 @@ const normalizeStockSearchCount = (
   return Math.min(Math.max(Math.trunc(parsed), 1), MAX_STOCK_SEARCH_COUNT);
 };
 
-const normalizeTopShareCount = (value, fallback = TOP_SHARE_MARKET_SYMBOLS.length) => {
+const normalizeTopShareCount = (
+  value,
+  fallback = TOP_SHARE_MARKET_SYMBOLS.length,
+) => {
   const parsed = Number(value);
 
   if (!Number.isFinite(parsed)) return fallback;
@@ -217,7 +222,9 @@ const normalizeTopShareSymbols = (symbols = []) => {
   const selectedSymbols = [];
 
   for (const rawSymbol of symbols) {
-    const symbol = String(rawSymbol || "").trim().toUpperCase();
+    const symbol = String(rawSymbol || "")
+      .trim()
+      .toUpperCase();
 
     if (!symbol) continue;
 
@@ -253,7 +260,9 @@ const normalizeRequiredSearchQuery = (value) => {
 };
 
 const getConfiguredSymbolLabel = (symbol) => {
-  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+  const normalizedSymbol = String(symbol || "")
+    .trim()
+    .toUpperCase();
   const market = Object.values(MARKET_SYMBOLS).find(
     (item) => item.symbol.toUpperCase() === normalizedSymbol,
   );
@@ -265,7 +274,10 @@ const normalizeQuote = (marketConfig, quote, fetchedAt) => ({
   key: marketConfig.key,
   symbol: marketConfig.symbol,
   displayName:
-    quote.longName || quote.shortName || marketConfig.displayName || marketConfig.key,
+    quote.longName ||
+    quote.shortName ||
+    marketConfig.displayName ||
+    marketConfig.key,
   type: marketConfig.type,
   exchange: quote.fullExchangeName || quote.exchange || marketConfig.exchange,
   currency: quote.currency || null,
@@ -403,7 +415,9 @@ const normalizeMoverDetailQuote = (quote = {}) => {
     ask: toNumberOrNull(safeQuote.regularMarketAsk),
     askSize: toNumberOrNull(safeQuote.regularMarketAskSize),
     averageDailyVolume10Day: toNumberOrNull(safeQuote.averageDailyVolume10Day),
-    averageDailyVolume3Month: toNumberOrNull(safeQuote.averageDailyVolume3Month),
+    averageDailyVolume3Month: toNumberOrNull(
+      safeQuote.averageDailyVolume3Month,
+    ),
     fiftyDayAverage: toNumberOrNull(safeQuote.fiftyDayAverage),
     twoHundredDayAverage: toNumberOrNull(safeQuote.twoHundredDayAverage),
     fiftyTwoWeekRange: safeQuote.fiftyTwoWeekRange || null,
@@ -413,9 +427,7 @@ const normalizeMoverDetailQuote = (quote = {}) => {
     priceToBook: toNumberOrNull(safeQuote.priceToBook),
     trailingPE: toNumberOrNull(safeQuote.trailingPE),
     forwardPE: toNumberOrNull(safeQuote.forwardPE),
-    epsTrailingTwelveMonths: toNumberOrNull(
-      safeQuote.epsTrailingTwelveMonths,
-    ),
+    epsTrailingTwelveMonths: toNumberOrNull(safeQuote.epsTrailingTwelveMonths),
     epsForward: toNumberOrNull(safeQuote.epsForward),
     dividendRate: toNumberOrNull(safeQuote.dividendRate),
     dividendYield: toNumberOrNull(safeQuote.dividendYield),
@@ -423,7 +435,14 @@ const normalizeMoverDetailQuote = (quote = {}) => {
   };
 };
 
-const normalizeMoverDetail = ({ item, quote, listId, list, region, source }) => {
+const normalizeMoverDetail = ({
+  item,
+  quote,
+  listId,
+  list,
+  region,
+  source,
+}) => {
   const latest = normalizeMarketInstrument({
     symbol: quote?.symbol || item.symbol,
     displayName: quote?.displayName || item.displayName,
@@ -511,15 +530,11 @@ const saveSnapshots = async (snapshots) => {
 
   await Promise.all(
     snapshots.map((snapshot) =>
-      MarketSnapshot.findOneAndUpdate(
-        { key: snapshot.key },
-        snapshot,
-        {
-          upsert: true,
-          returnDocument: "after",
-          setDefaultsOnInsert: true,
-        },
-      ),
+      MarketSnapshot.findOneAndUpdate({ key: snapshot.key }, snapshot, {
+        upsert: true,
+        returnDocument: "after",
+        setDefaultsOnInsert: true,
+      }),
     ),
   );
 };
@@ -543,7 +558,13 @@ const getAnyCache = async (keys) =>
     key: { $in: keys },
   }).lean();
 
-const buildCollectionCacheKey = ({ collectionType, region, listId, count, lang }) =>
+const buildCollectionCacheKey = ({
+  collectionType,
+  region,
+  listId,
+  count,
+  lang,
+}) =>
   [collectionType, region, listId || "all", count, lang]
     .map((value) => String(value || "").trim())
     .join(":");
@@ -662,7 +683,8 @@ const normalizeStockSearchItem = ({ quote, rank, region }) => {
     shortName,
     longName,
     type: quote.quoteType || quote.typeDisp || null,
-    exchange: quote.fullExchangeName || quote.exchange || quote.exchDisp || null,
+    exchange:
+      quote.fullExchangeName || quote.exchange || quote.exchDisp || null,
     exchangeCode: quote.exchange || null,
     currency: quote.currency || null,
     region,
@@ -672,7 +694,9 @@ const normalizeStockSearchItem = ({ quote, rank, region }) => {
 };
 
 const isStockQuote = (quote) =>
-  String(quote?.quoteType || "").trim().toUpperCase() === "EQUITY";
+  String(quote?.quoteType || "")
+    .trim()
+    .toUpperCase() === "EQUITY";
 
 const fetchStockSearchFromYahoo = async ({ query, region, count, lang }) => {
   const providerCount = Math.min(Math.max(count * 3, count), 50);
@@ -780,9 +804,7 @@ const fetchTrendingSymbolsFromYahoo = async ({ region, count, lang }) => {
     throw new Error(`No trending symbols returned for region ${region}`);
   }
 
-  const symbols = result.quotes
-    .map((item) => item?.symbol)
-    .filter(Boolean);
+  const symbols = result.quotes.map((item) => item?.symbol).filter(Boolean);
 
   let quoteMap = {};
 
@@ -852,7 +874,11 @@ const fetchScreenerFromYahoo = async ({ listId, region, count, lang }) => {
 const buildYahooChartUrl = (symbol) =>
   `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`;
 
-const normalizeChartPoints = ({ timestamps = [], quote = {}, adjustedClose = [] }) =>
+const normalizeChartPoints = ({
+  timestamps = [],
+  quote = {},
+  adjustedClose = [],
+}) =>
   timestamps.map((timestamp, index) => ({
     time: toDate(timestamp),
     open: toNumberOrNull(quote.open?.[index]),
@@ -865,25 +891,27 @@ const normalizeChartPoints = ({ timestamps = [], quote = {}, adjustedClose = [] 
 
 const normalizeChartResult = ({ symbol, rank, period, chartResult }) => {
   const quote = chartResult.indicators?.quote?.[0] || {};
-  const adjustedClose =
-    chartResult.indicators?.adjclose?.[0]?.adjclose || [];
+  const adjustedClose = chartResult.indicators?.adjclose?.[0]?.adjclose || [];
   const points = normalizeChartPoints({
     timestamps: chartResult.timestamp || [],
     quote,
     adjustedClose,
   });
-  const latestPoint = [...points]
-    .reverse()
-    .find((point) => point.close !== null) || null;
+  const latestPoint =
+    [...points].reverse().find((point) => point.close !== null) || null;
 
   return {
     rank,
     symbol,
     status: "ok",
-    displayName: chartResult.meta?.longName || chartResult.meta?.shortName || symbol,
+    displayName:
+      chartResult.meta?.longName || chartResult.meta?.shortName || symbol,
     period,
     currency: chartResult.meta?.currency || null,
-    exchange: chartResult.meta?.fullExchangeName || chartResult.meta?.exchangeName || null,
+    exchange:
+      chartResult.meta?.fullExchangeName ||
+      chartResult.meta?.exchangeName ||
+      null,
     timezone: chartResult.meta?.timezone || null,
     marketState: chartResult.meta?.marketState || "UNKNOWN",
     regularMarketPrice: toNumberOrNull(chartResult.meta?.regularMarketPrice),
@@ -924,7 +952,9 @@ const fetchShareChartFromYahoo = async ({ symbol, rank, periodConfig }) => {
   const chartError = chart?.error;
 
   if (chartError) {
-    throw new Error(chartError.description || `Yahoo chart error for ${symbol}`);
+    throw new Error(
+      chartError.description || `Yahoo chart error for ${symbol}`,
+    );
   }
 
   const chartResult = chart?.result?.[0];
@@ -941,7 +971,11 @@ const fetchShareChartFromYahoo = async ({ symbol, rank, periodConfig }) => {
   });
 };
 
-const fetchTopShareMarketsFromYahoo = async ({ periodConfig, count, symbols }) => {
+const fetchTopShareMarketsFromYahoo = async ({
+  periodConfig,
+  count,
+  symbols,
+}) => {
   const requestedSymbols = symbols?.length
     ? symbols
     : TOP_SHARE_MARKET_SYMBOLS.slice(0, count);
@@ -1234,7 +1268,9 @@ export const getMarketMoverData = async ({
   lang,
   forceRefresh = false,
 } = {}) => {
-  const normalizedListId = String(listId || "").trim().toLowerCase();
+  const normalizedListId = String(listId || "")
+    .trim()
+    .toLowerCase();
 
   if (!MARKET_MOVER_LISTS[normalizedListId]) {
     const error = new Error("Unsupported market movers list");
@@ -1317,11 +1353,13 @@ export const getTopGainerDetails = async ({
   lang,
   forceRefresh = false,
 } = {}) => {
-  const requestedIds = [...new Set(
-    (Array.isArray(ids) ? ids : [])
-      .map((id) => String(id || "").trim())
-      .filter(Boolean),
-  )];
+  const requestedIds = [
+    ...new Set(
+      (Array.isArray(ids) ? ids : [])
+        .map((id) => String(id || "").trim())
+        .filter(Boolean),
+    ),
+  ];
   const movers = await getMarketMoverData({
     listId: "day_gainers",
     region,
@@ -1456,13 +1494,16 @@ export const getMarketMoverDetail = async ({
     error.details = {
       id: normalizedId,
       listId: movers.list?.id || listId,
-      supportedIdValues: "Use rank number or symbol from /api/market-data/movers",
+      supportedIdValues:
+        "Use rank number or symbol from /api/market-data/movers",
     };
     throw error;
   }
 
   try {
-    const quote = item.symbol ? await fetchDetailedQuoteBySymbol(item.symbol) : null;
+    const quote = item.symbol
+      ? await fetchDetailedQuoteBySymbol(item.symbol)
+      : null;
 
     return {
       ...normalizeMoverDetail({
@@ -1498,7 +1539,9 @@ export const getTopShareMarketData = async ({
   symbols,
   forceRefresh = false,
 } = {}) => {
-  const normalizedPeriod = String(period || "daily").trim().toLowerCase();
+  const normalizedPeriod = String(period || "daily")
+    .trim()
+    .toLowerCase();
   const periodConfig = TOP_SHARE_MARKET_PERIODS[normalizedPeriod];
 
   if (!periodConfig) {
@@ -1615,7 +1658,9 @@ export const getMarketNewsData = async ({
   lang,
   forceRefresh = false,
 } = {}) => {
-  const normalizedRegion = normalizeRegion(region || DEFAULT_MARKET_NEWS_REGION);
+  const normalizedRegion = normalizeRegion(
+    region || DEFAULT_MARKET_NEWS_REGION,
+  );
   const normalizedCount = normalizeNewsCount(count);
   const normalizedLang = normalizeLang(normalizedRegion, lang);
   const requestedSymbols = [
@@ -1922,15 +1967,10 @@ export const getMarketHomeData = async ({
         name: "watchlist",
         success: false,
         source: "not-configured",
-        message: "Watchlist needs user authentication and a user-watchlist model.",
+        message:
+          "Watchlist needs user authentication and a user-watchlist model.",
         data: [],
       },
     },
   };
 };
-
-
-
-
-
-

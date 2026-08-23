@@ -38,8 +38,24 @@ Important: The app mounts routes both directly and under `/api`. The primary URL
 
 - Purpose: Returns asset categories for frontend screens: stocks, mutual funds, ETF, fixed deposit, metals, ULIP, cash, and others.
 - Default response includes all asset categories.
+- Each asset item includes an `icon` URL that can be used directly in an image tag.
 - Use `status=available` to return only categories that already have data/search APIs.
 - Example local URL: `http://localhost:4500/api/assets`
+
+Example item:
+
+```json
+{
+  "key": "stocks",
+  "name": "Stocks",
+  "icon": "https://api.iconify.design/lucide:chart-candlestick.svg?color=%23156ff7",
+  "description": "Company shares listed on stock exchanges.",
+  "status": "available",
+  "dataRoute": "/api/stocks",
+  "searchParam": "query",
+  "examples": ["HDFC Bank", "Reliance", "Apple"]
+}
+```
 
 ## 3. Create User / Signup
 
@@ -826,13 +842,17 @@ These are represented in `GET /api/market-data/home`, but do not have standalone
 {
   "symbol": "RELIANCE.NS",
   "name": "Reliance Industries Limited",
+  "icon": "https://example.com/icons/reliance.png",
   "quantity": 10,
+  "price": 2500.50,
   "purchasePrice": 2500.50,
   "currentPrice": 2650.00,
   "exchange": "NSE",
   "sector": "Energy",
   "currency": "INR",
+  "transactionDate": "2026-01-15",
   "purchaseDate": "2026-01-15",
+  "transactionType": "buy",
   "marketCap": "Large Cap",
   "dividendYield": 0.8,
   "peRatio": 12.5,
@@ -848,7 +868,10 @@ These are represented in `GET /api/market-data/home`, but do not have standalone
 ```
 
 - Required fields: `symbol`, `name`, `quantity`
-- Optional fields: All others
+- Optional fields: All others. `price` is accepted as a frontend-friendly alias for `purchasePrice`; if `currentPrice` is omitted, `price` is also used as `currentPrice`.
+- Calculated response fields include `totalInvestment` and `totalValue` as `purchasePrice * quantity`.
+- `transactionType` must be `buy` or `sell`; default is `buy`.
+- `transactionDate` is accepted as the manual transaction date. `purchaseDate` remains supported for older clients.
 - Supported market caps: `Large Cap`, `Mid Cap`, `Small Cap`, `Micro Cap`
 
 ## 57. Get User's Stock Collection
@@ -865,11 +888,12 @@ These are represented in `GET /api/market-data/home`, but do not have standalone
 | `symbol` | No | all | `RELIANCE` (partial match) |
 | `sector` | No | all | `Energy` (partial match) |
 | `exchange` | No | all | `NSE` |
+| `transactionType` | No | all | `buy` or `sell` |
 | `watchlist` | No | all | `true` or `false` |
 | `tags` | No | all | `blue-chip,dividend` |
 | `page` | No | `1` | `1` |
 | `limit` | No | `50`, max `100` | `20` |
-| `sortBy` | No | `createdAt` | `symbol`, `name`, `quantity`, `purchasePrice`, `currentPrice`, `sector`, `purchaseDate` |
+| `sortBy` | No | `createdAt` | `symbol`, `name`, `quantity`, `purchasePrice`, `currentPrice`, `sector`, `purchaseDate`, `transactionDate`, `transactionType` |
 | `sortOrder` | No | `desc` | `asc` or `desc` |
 
 - Example local URL: `http://localhost:4500/api/stocks?sector=Energy&watchlist=true&page=1&limit=20&sortBy=currentPrice&sortOrder=desc`
@@ -1044,7 +1068,7 @@ These are represented in `GET /api/market-data/home`, but do not have standalone
 - Performance tracking
 
 ### Data Validation
-- Prevents duplicate stocks per user (same symbol)
+- Allows multiple manual stock transactions for the same user and symbol
 - Validates stock symbols, prices, quantities
 - Supports various market caps and sectors
 
@@ -1062,7 +1086,7 @@ These endpoints manage a user's manually entered mutual-fund holdings. They are 
 | Update holding | `PATCH` or `PUT` | `/api/mutual-fund-holdings/:id` |
 | Delete holding | `DELETE` | `/api/mutual-fund-holdings/:id` |
 
-Required add payload fields are `fundName`, `units`, and `investedAmount`. Optional fields are `schemeCode`, `folioNumber`, `purchaseNav`, `currentNav`, `purchaseDate`, `fundHouse`, `category`, `notes`, and `tags`.
+Required add payload fields are `fundName`, plus either `units`/`quantity` and `investedAmount`, or `units`/`quantity` and `price`/`purchaseNav` so the server can calculate `investedAmount`. Optional fields are `schemeCode`, `folioNumber`, `icon`, `purchaseNav`, `currentNav`, `transactionDate`, `transactionType`, `purchaseDate`, `fundHouse`, `category`, `notes`, and `tags`.
 
 Example add payload:
 
@@ -1070,10 +1094,15 @@ Example add payload:
 {
   "fundName": "Example Flexi Cap Fund - Direct Growth",
   "schemeCode": "122639",
-  "units": 125.5,
-  "investedAmount": 25000,
-  "purchaseNav": 180.5,
+  "icon": "https://example.com/icons/flexi-cap.png",
+  "quantity": 125.5,
+  "price": 180.5,
   "currentNav": 205.75,
-  "purchaseDate": "2026-01-15"
+  "transactionDate": "2026-01-15",
+  "transactionType": "buy"
 }
 ```
+
+The response includes calculated `totalValue` as the invested amount. In the example above, `investedAmount` is calculated as `quantity * price`.
+
+List holdings query params: `search`, `transactionType=buy|sell`, `page`, `limit`, and `sortOrder=asc|desc`.

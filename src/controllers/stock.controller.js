@@ -64,6 +64,7 @@ export const getStocks = async (req, res) => {
       symbol,
       sector,
       exchange,
+      transactionType,
       watchlist,
       tags,
       page = 1,
@@ -85,6 +86,10 @@ export const getStocks = async (req, res) => {
 
     if (exchange) {
       filter.exchange = exchange.toUpperCase();
+    }
+
+    if (transactionType) {
+      filter.transactionType = transactionType;
     }
 
     if (watchlist !== undefined) {
@@ -215,7 +220,7 @@ export const updateStock = async (req, res) => {
     if (error.code === 11000) {
       return sendError(res, {
         statusCode: 409,
-        message: "You already have this stock symbol in your collection",
+        message: "A stock entry with these unique fields already exists",
       });
     }
 

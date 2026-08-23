@@ -17,9 +17,10 @@ export const addMutualFundHolding = async (req, res) => {
 
 export const getMutualFundHoldings = async (req, res) => {
   try {
-    const { page = 1, limit = 50, search, sortOrder = "desc" } = req.validated?.query || req.query;
+    const { page = 1, limit = 50, search, transactionType, sortOrder = "desc" } = req.validated?.query || req.query;
     const filter = { userId: req.user.userId };
     if (search) filter.fundName = { $regex: escapeRegex(search), $options: "i" };
+    if (transactionType) filter.transactionType = transactionType;
     const [data, total] = await Promise.all([
       UserMutualFund.find(filter).sort({ createdAt: sortOrder === "asc" ? 1 : -1 }).skip((page - 1) * limit).limit(limit),
       UserMutualFund.countDocuments(filter),
