@@ -92,7 +92,6 @@ apiRouter.use(authRoutes);
 apiRouter.use(stockRoutes);
 apiRouter.use(mutualFundHoldingRoutes);
 
-app.use(apiRouter);
 app.use("/api", apiRouter);
 
 app.get("/", (req, res) => {

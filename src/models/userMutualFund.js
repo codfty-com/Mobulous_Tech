@@ -14,6 +14,11 @@ const userMutualFundSchema = new mongoose.Schema(
       trim: true,
       maxlength: [200, "Fund name cannot exceed 200 characters"],
     },
+    icon: {
+      type: String,
+      trim: true,
+      maxlength: [500, "Icon URL cannot exceed 500 characters"],
+    },
     schemeCode: {
       type: String,
       trim: true,
@@ -37,6 +42,14 @@ const userMutualFundSchema = new mongoose.Schema(
     purchaseNav: { type: Number, min: [0, "Purchase NAV cannot be negative"] },
     currentNav: { type: Number, min: [0, "Current NAV cannot be negative"] },
     purchaseDate: { type: Date, default: Date.now },
+    transactionDate: { type: Date, default: Date.now },
+    transactionType: {
+      type: String,
+      enum: ["buy", "sell"],
+      default: "buy",
+      lowercase: true,
+      trim: true,
+    },
     fundHouse: { type: String, trim: true, maxlength: 150 },
     category: { type: String, trim: true, maxlength: 100 },
     notes: { type: String, trim: true, maxlength: 500 },
@@ -51,6 +64,14 @@ userMutualFundSchema.index({ userId: 1, fundName: 1 });
 
 userMutualFundSchema.virtual("currentValue").get(function () {
   return this.currentNav === undefined ? null : this.units * this.currentNav;
+});
+
+userMutualFundSchema.virtual("quantity").get(function () {
+  return this.units;
+});
+
+userMutualFundSchema.virtual("totalValue").get(function () {
+  return this.investedAmount;
 });
 
 userMutualFundSchema.virtual("profitLoss").get(function () {

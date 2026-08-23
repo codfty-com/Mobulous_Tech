@@ -43,6 +43,9 @@ const normalizeTags = (value) => {
 const buildResult = (errors, data) =>
   errors.length ? { success: false, errors } : { success: true, data };
 
+const normalizeTransactionType = (value) =>
+  typeof value === "string" ? value.trim().toLowerCase() : value;
+
 export const addStockSchema = {
   body(body) {
     const errors = [];
@@ -53,12 +56,15 @@ export const addStockSchema = {
     const quantity = normalizeNumber(body.quantity);
 
     // Optional fields
-    const purchasePrice = normalizeNumber(body.purchasePrice);
-    const currentPrice = normalizeNumber(body.currentPrice);
+    const icon = normalizeString(body.icon);
+    const purchasePrice = normalizeNumber(body.purchasePrice ?? body.price);
+    const currentPrice = normalizeNumber(body.currentPrice ?? body.price);
     const exchange = normalizeString(body.exchange)?.toUpperCase();
     const sector = normalizeString(body.sector);
     const currency = normalizeString(body.currency)?.toUpperCase();
-    const purchaseDate = normalizeDate(body.purchaseDate);
+    const purchaseDate = normalizeDate(body.purchaseDate ?? body.transactionDate);
+    const transactionDate = normalizeDate(body.transactionDate ?? body.purchaseDate);
+    const transactionType = normalizeTransactionType(body.transactionType ?? "buy");
     const marketCap = normalizeString(body.marketCap);
     const dividendYield = normalizeNumber(body.dividendYield);
     const peRatio = normalizeNumber(body.peRatio);
@@ -103,8 +109,24 @@ export const addStockSchema = {
       errors.push("Purchase price cannot be negative");
     }
 
+    if (body.price !== undefined && purchasePrice === undefined) {
+      errors.push("Price must be a valid number");
+    }
+
     if (currentPrice !== undefined && currentPrice < 0) {
       errors.push("Current price cannot be negative");
+    }
+
+    if (icon && icon.length > 500) {
+      errors.push("Icon URL cannot exceed 500 characters");
+    }
+
+    if ((body.purchaseDate || body.transactionDate) && !transactionDate) {
+      errors.push("Transaction date must be a valid date");
+    }
+
+    if (!["buy", "sell"].includes(transactionType)) {
+      errors.push("Transaction type must be either buy or sell");
     }
 
     if (dividendYield !== undefined && dividendYield < 0) {
@@ -142,12 +164,15 @@ export const addStockSchema = {
     };
 
     // Add optional fields only if they have values
+    if (icon) data.icon = icon;
     if (purchasePrice !== undefined) data.purchasePrice = purchasePrice;
     if (currentPrice !== undefined) data.currentPrice = currentPrice;
     if (exchange) data.exchange = exchange;
     if (sector) data.sector = sector;
     if (currency) data.currency = currency;
     if (purchaseDate) data.purchaseDate = purchaseDate;
+    if (transactionDate) data.transactionDate = transactionDate;
+    data.transactionType = transactionType;
     if (marketCap) data.marketCap = marketCap;
     if (dividendYield !== undefined) data.dividendYield = dividendYield;
     if (peRatio !== undefined) data.peRatio = peRatio;
@@ -193,6 +218,15 @@ export const updateStockSchema = {
       }
     }
 
+    if (body.icon !== undefined) {
+      const icon = normalizeString(body.icon);
+      if (icon && icon.length > 500) {
+        errors.push("Icon URL cannot exceed 500 characters");
+      } else {
+        data.icon = icon || "";
+      }
+    }
+
     if (body.quantity !== undefined) {
       const quantity = normalizeNumber(body.quantity);
       if (quantity === undefined) {
@@ -204,14 +238,16 @@ export const updateStockSchema = {
       }
     }
 
-    if (body.purchasePrice !== undefined) {
-      const purchasePrice = normalizeNumber(body.purchasePrice);
+    if (body.purchasePrice !== undefined || body.price !== undefined) {
+      const purchasePrice = normalizeNumber(body.purchasePrice ?? body.price);
       if (purchasePrice !== undefined) {
         if (purchasePrice < 0) {
           errors.push("Purchase price cannot be negative");
         } else {
           data.purchasePrice = purchasePrice;
         }
+      } else {
+        errors.push("Price must be a valid number");
       }
     }
 
@@ -244,6 +280,22 @@ export const updateStockSchema = {
     if (body.purchaseDate !== undefined) {
       const purchaseDate = normalizeDate(body.purchaseDate);
       if (purchaseDate) data.purchaseDate = purchaseDate;
+      else errors.push("Purchase date must be a valid date");
+    }
+
+    if (body.transactionDate !== undefined) {
+      const transactionDate = normalizeDate(body.transactionDate);
+      if (transactionDate) data.transactionDate = transactionDate;
+      else errors.push("Transaction date must be a valid date");
+    }
+
+    if (body.transactionType !== undefined) {
+      const transactionType = normalizeTransactionType(body.transactionType);
+      if (!["buy", "sell"].includes(transactionType)) {
+        errors.push("Transaction type must be either buy or sell");
+      } else {
+        data.transactionType = transactionType;
+      }
     }
 
     if (body.marketCap !== undefined) {
@@ -352,6 +404,15 @@ export const getStocksQuerySchema = {
       data.exchange = query.exchange;
     }
 
+    if (query.transactionType !== undefined) {
+      const transactionType = normalizeTransactionType(query.transactionType);
+      if (!["buy", "sell"].includes(transactionType)) {
+        errors.push("Transaction type must be either buy or sell");
+      } else {
+        data.transactionType = transactionType;
+      }
+    }
+
     if (query.watchlist !== undefined) {
       if (!["true", "false"].includes(query.watchlist)) {
         errors.push("Watchlist must be 'true' or 'false'");
@@ -392,6 +453,8 @@ export const getStocksQuerySchema = {
         "sector",
         "exchange",
         "purchaseDate",
+        "transactionDate",
+        "transactionType",
         "createdAt",
         "updatedAt",
         "lastUpdated",
