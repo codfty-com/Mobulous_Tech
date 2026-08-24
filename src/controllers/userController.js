@@ -17,12 +17,31 @@ const setSignupOtp = (user) => {
 };
 
 const sendSignupOtpEmail = async (email, otp) => {
-  await sendEmail(
-    email,
-    "OTP for Signup Verification",
-    `Your signup OTP is ${otp}. It is valid for ${OTP_EXPIRY_MINUTES} minutes.`,
-  );
+  try {
+    await sendEmail(
+      email,
+      "OTP for Signup Verification",
+      `Your signup OTP is ${otp}. It is valid for ${OTP_EXPIRY_MINUTES} minutes.`,
+    );
+
+    return { sent: true };
+  } catch (error) {
+    console.error("Signup OTP email failed:", error.message);
+
+    return {
+      sent: false,
+      error: "Signup OTP email could not be sent",
+    };
+  }
 };
+
+const buildSignupData = (user, emailDelivery) => ({
+  userId: user._id,
+  email: user.email,
+  isEmailVerified: user.isEmailVerified,
+  otpDelivery: emailDelivery,
+  ...(!env.isProduction ? { otp: user.otp } : {}),
+});
 
 const shouldRedirectToLogin = (req) =>
   req.query?.redirect === "true" || req.get("accept")?.includes("text/html");
@@ -70,17 +89,16 @@ export const createUser = async (req, res) => {
         setSignupOtp(existingUser);
 
         await existingUser.save();
-        await sendSignupOtpEmail(existingUser.email, existingUser.otp);
+        const emailDelivery = await sendSignupOtpEmail(
+          existingUser.email,
+          existingUser.otp,
+        );
 
         return res.status(200).json({
           success: true,
           message:
             "Signup OTP resent successfully. Please verify your email before login.",
-          data: {
-            userId: existingUser._id,
-            email: existingUser.email,
-            isEmailVerified: existingUser.isEmailVerified,
-          },
+          data: buildSignupData(existingUser, emailDelivery),
         });
       }
 
@@ -103,16 +121,12 @@ export const createUser = async (req, res) => {
 
     setSignupOtp(user);
     await user.save();
-    await sendSignupOtpEmail(user.email, user.otp);
+    const emailDelivery = await sendSignupOtpEmail(user.email, user.otp);
 
     return res.status(201).json({
       success: true,
       message: "User created successfully. OTP sent to email for verification.",
-      data: {
-        userId: user._id,
-        email: user.email,
-        isEmailVerified: user.isEmailVerified,
-      },
+      data: buildSignupData(user, emailDelivery),
     });
   } catch (error) {
     console.error("Signup Error:", error);
@@ -120,6 +134,7 @@ export const createUser = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal server error",
+      ...(!env.isProduction ? { error: error.message } : {}),
     });
   }
 };
@@ -176,6 +191,7 @@ export const verifySignupOtp = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Internal server error",
+      ...(!env.isProduction ? { error: error.message } : {}),
     });
   }
 };

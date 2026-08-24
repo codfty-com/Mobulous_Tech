@@ -1,6 +1,6 @@
 import express from "express";
 import { createUser, verifySignupOtp } from "../controllers/userController.js";
-import { getAllusers } from "../controllers/allUserList.js";
+import { getAllusers, searchAdminUsers } from "../controllers/allUserList.js";
 import {
   deleteUserProfileById,
   getUserProfileById,
@@ -33,6 +33,7 @@ router.post("/login-google", validateRequest(loginWithGoogleSchema), loginWithGo
 
 // Admin user routes - Authentication required
 router.get("/admin/users", authenticateRequest, requireAdmin, getUsers);
+router.get("/admin/users/search", authenticateRequest, requireAdmin, searchAdminUsers);
 router.get("/admin/users/:_id", authenticateRequest, requireAdmin, getUserProfileById);
 router.delete("/admin/users/:_id", authenticateRequest, requireAdmin, deleteUserProfileById);
 
