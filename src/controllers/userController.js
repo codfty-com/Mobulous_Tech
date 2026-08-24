@@ -1,19 +1,21 @@
 import User from "../models/user.js";
 import bcrypt from "bcryptjs";
-import { randomInt } from "crypto";
 import { env } from "../config/env.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { createOtpRecord, isOtpExpired, matchesOtp } from "../utils/otp.js";
 
 const OTP_EXPIRY_MINUTES = env.otpExpiryMinutes;
 const LOGIN_REDIRECT_URL = env.loginRedirectUrl;
 const EMAIL_PASSWORD_METHOD = "email_password";
 const GOOGLE_METHOD = "google";
 
-const generateOtp = () => randomInt(100000, 1000000).toString();
-
 const setSignupOtp = (user) => {
-  user.otp = generateOtp();
-  user.otpExpiry = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+  const { otp, otpHash, otpExpiry } = createOtpRecord();
+
+  user.otp = otpHash;
+  user.otpExpiry = otpExpiry;
+
+  return otp;
 };
 
 const sendSignupOtpEmail = async (email, otp) => {
@@ -35,13 +37,19 @@ const sendSignupOtpEmail = async (email, otp) => {
   }
 };
 
-const buildSignupData = (user, emailDelivery) => ({
+const buildSignupData = (user) => ({
   userId: user._id,
   email: user.email,
   isEmailVerified: user.isEmailVerified,
-  otpDelivery: emailDelivery,
-  ...(!env.isProduction ? { otp: user.otp } : {}),
 });
+
+const sendEmailFailure = (res, emailDelivery) =>
+  res.status(503).json({
+    success: false,
+    message:
+      "Could not send verification OTP email. Please check email configuration and try again.",
+    ...(!env.isProduction ? { error: emailDelivery.error } : {}),
+  });
 
 const shouldRedirectToLogin = (req) =>
   req.query?.redirect === "true" || req.get("accept")?.includes("text/html");
@@ -86,19 +94,23 @@ export const createUser = async (req, res) => {
           new Set([...(existingUser.authMethods || []), EMAIL_PASSWORD_METHOD]),
         );
         existingUser.lastLoginMethod = EMAIL_PASSWORD_METHOD;
-        setSignupOtp(existingUser);
+        const signupOtp = setSignupOtp(existingUser);
 
         await existingUser.save();
         const emailDelivery = await sendSignupOtpEmail(
           existingUser.email,
-          existingUser.otp,
+          signupOtp,
         );
+
+        if (!emailDelivery.sent) {
+          return sendEmailFailure(res, emailDelivery);
+        }
 
         return res.status(200).json({
           success: true,
           message:
             "Signup OTP resent successfully. Please verify your email before login.",
-          data: buildSignupData(existingUser, emailDelivery),
+          data: buildSignupData(existingUser),
         });
       }
 
@@ -119,14 +131,18 @@ export const createUser = async (req, res) => {
       isEmailVerified: false,
     });
 
-    setSignupOtp(user);
+    const signupOtp = setSignupOtp(user);
     await user.save();
-    const emailDelivery = await sendSignupOtpEmail(user.email, user.otp);
+    const emailDelivery = await sendSignupOtpEmail(user.email, signupOtp);
+
+    if (!emailDelivery.sent) {
+      return sendEmailFailure(res, emailDelivery);
+    }
 
     return res.status(201).json({
       success: true,
       message: "User created successfully. OTP sent to email for verification.",
-      data: buildSignupData(user, emailDelivery),
+      data: buildSignupData(user),
     });
   } catch (error) {
     console.error("Signup Error:", error);
@@ -160,14 +176,14 @@ export const verifySignupOtp = async (req, res) => {
       );
     }
 
-    if (!user.otp || user.otp !== otp) {
+    if (!matchesOtp(user.otp, otp)) {
       return res.status(400).json({
         success: false,
         message: "Invalid OTP",
       });
     }
 
-    if (!user.otpExpiry || user.otpExpiry < new Date()) {
+    if (isOtpExpired(user.otpExpiry)) {
       return res.status(400).json({
         success: false,
         message: "OTP expired. Please signup again to resend OTP.",
