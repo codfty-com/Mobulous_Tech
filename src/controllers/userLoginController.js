@@ -31,6 +31,11 @@ const sanitizeUser = (user) => {
   return userData;
 };
 
+const isJwtConfigError = (error) =>
+  ["JWT_SECRET is not configured", "JWT_REFRESH_SECRET is not configured"].includes(
+    error.message,
+  );
+
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.validated?.body || req.body;
@@ -95,9 +100,11 @@ export const loginUser = async (req, res) => {
   } catch (error) {
     console.error(error, "log in failed");
 
-    return res.status(500).json({
+    const isConfigError = isJwtConfigError(error);
+
+    return res.status(isConfigError ? 503 : 500).json({
       success: false,
-      message: "Internal server error",
+      message: isConfigError ? error.message : "Internal server error",
     });
   }
 };

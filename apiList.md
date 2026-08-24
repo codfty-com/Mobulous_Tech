@@ -131,32 +131,58 @@ Example item:
 ## 7. Get All Users
 
 - Method: `GET`
-- Local URL: `http://localhost:4500/api/users`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/users`
+- Local URL: `http://localhost:4500/api/admin/users`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users`
 - Payload: Not required
+- Auth: Admin access required.
 - Purpose: Returns all users with `password`, `otp`, and `otpExpiry` excluded.
+
+## 7A. Admin Search Users By Name Or Email
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/admin/users/search`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users/search`
+- Payload: Not required
+- Auth: Admin access required.
+- Purpose: Searches users by name and/or email with `password`, `otp`, and `otpExpiry` excluded.
+- Example local URLs:
+  - `http://localhost:4500/api/admin/users/search?query=john`
+  - `http://localhost:4500/api/admin/users/search?name=john`
+  - `http://localhost:4500/api/admin/users/search?email=john@example.com`
+
+Query params:
+
+| Parameter | Required | Default | Example |
+|---|---:|---|---|
+| `query` or `search` | No | none | `john` |
+| `name` | No | none | `john` |
+| `email` | No | none | `john@example.com` |
+| `page` | No | `1` | `1` |
+| `limit` | No | `20`, max `100` | `10` |
 
 ## 8. Get User By Query ID
 
 - Method: `GET`
-- Local URL: `http://localhost:4500/api/users?_id=64abc123abc123abc123abcd`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/users?_id=64abc123abc123abc123abcd`
+- Local URL: `http://localhost:4500/api/admin/users?_id=64abc123abc123abc123abcd`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users?_id=64abc123abc123abc123abcd`
 - Payload: Not required
+- Auth: Admin access required.
 - Query params:
 
 | Parameter | Required | Example |
 |---|---:|---|
 | `_id` or `id` | Yes | `64abc123abc123abc123abcd` |
 
-- Purpose: `GET /api/users` switches to single-user lookup when `_id` or `id` is present.
+- Purpose: `GET /api/admin/users` switches to single-user lookup when `_id` or `id` is present.
 
 ## 9. Get User By Path ID
 
 - Method: `GET`
-- Local URL: `http://localhost:4500/api/users/:_id`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/users/:_id`
-- Example local URL: `http://localhost:4500/api/users/64abc123abc123abc123abcd`
+- Local URL: `http://localhost:4500/api/admin/users/:_id`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users/:_id`
+- Example local URL: `http://localhost:4500/api/admin/users/64abc123abc123abc123abcd`
 - Payload: Not required
+- Auth: Admin access required.
 
 ## 10. Update User Profile By ID
 
