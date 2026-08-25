@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 const parseBoolean = (value, fallback = false) => {
   if (value === undefined || value === null || value === "") return fallback;
 
