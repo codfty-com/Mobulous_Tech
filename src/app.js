@@ -13,6 +13,7 @@ import docsRoutes from "./routes/docsRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import stockRoutes from "./routes/stockRoutes.js";
 import mutualFundHoldingRoutes from "./routes/mutualFundHoldingRoutes.js";
+import expenseRoutes from "./routes/expenseRoutes.js";
 
 const app = express();
 const apiRouter = express.Router();
@@ -90,6 +91,7 @@ apiRouter.use(mutualFundDataRoutes);
 apiRouter.use(authRoutes);
 apiRouter.use(stockRoutes);
 apiRouter.use(mutualFundHoldingRoutes);
+apiRouter.use(expenseRoutes);
 
 app.use("/api", apiRouter);
 

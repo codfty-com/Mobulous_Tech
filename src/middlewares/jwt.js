@@ -2,17 +2,13 @@ import { verifyAccessToken } from "../services/jwt.service.js";
 import { env } from "../config/env.js";
 import { sendError } from "../utils/http.js";
 
-// TODO: Temporary auth bypass for local API testing.
-// Set this back to false when JWT authentication should be enforced again.
-const SKIP_JWT_AUTH_FOR_TESTING = true;
-
 /**
  * Middleware to authenticate requests using JWT access tokens
  * Expects: Authorization: Bearer <access_token>
  * Sets req.user with decoded token payload
  */
 export const authenticateRequest = (req, res, next) => {
-  if (SKIP_JWT_AUTH_FOR_TESTING) {
+  if (env.skipJwtAuthForTesting) {
     req.user = {
       userId:
         req.get("x-test-user-id") ||
