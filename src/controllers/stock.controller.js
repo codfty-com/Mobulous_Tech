@@ -4,6 +4,35 @@ import mongoose from "mongoose";
 
 const bodyFor = (req) => req.validated?.body || req.body;
 const queryFor = (req) => req.validated?.query || req.query;
+const validObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+const getRequestUserId = (req, res) => {
+  const userId = req.user?.userId;
+
+  if (!validObjectId(userId)) {
+    sendError(res, {
+      statusCode: 400,
+      message: "A valid userId is required",
+    });
+    return null;
+  }
+
+  return userId;
+};
+
+const getStockId = (req, res) => {
+  const { id } = req.params;
+
+  if (!validObjectId(id)) {
+    sendError(res, {
+      statusCode: 400,
+      message: "Invalid stock ID. Use the stock _id returned from GET /api/stocks.",
+    });
+    return null;
+  }
+
+  return id;
+};
 
 /**
  * Add a new stock (POST)
@@ -11,7 +40,9 @@ const queryFor = (req) => req.validated?.query || req.query;
  */
 export const addStock = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = getRequestUserId(req, res);
+
+    if (!userId) return null;
     
     const stockData = {
       userId,
@@ -59,7 +90,10 @@ export const addStock = async (req, res) => {
  */
 export const getStocks = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = getRequestUserId(req, res);
+
+    if (!userId) return null;
+
     const {
       symbol,
       sector,
@@ -143,15 +177,10 @@ export const getStocks = async (req, res) => {
  */
 export const getStockById = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { id } = req.params;
+    const userId = getRequestUserId(req, res);
+    const id = getStockId(req, res);
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return sendError(res, {
-        statusCode: 400,
-        message: "Invalid stock ID",
-      });
-    }
+    if (!userId || !id) return null;
 
     const stock = await UserStock.findOne({ _id: id, userId });
 
@@ -181,15 +210,10 @@ export const getStockById = async (req, res) => {
  */
 export const updateStock = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { id } = req.params;
+    const userId = getRequestUserId(req, res);
+    const id = getStockId(req, res);
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return sendError(res, {
-        statusCode: 400,
-        message: "Invalid stock ID",
-      });
-    }
+    if (!userId || !id) return null;
 
     // Don't allow userId to be changed
     const updateData = { ...bodyFor(req) };
@@ -198,7 +222,7 @@ export const updateStock = async (req, res) => {
 
     const stock = await UserStock.findOneAndUpdate(
       { _id: id, userId },
-      updateData,
+      { $set: updateData },
       { new: true, runValidators: true }
     );
 
@@ -245,15 +269,10 @@ export const updateStock = async (req, res) => {
  */
 export const deleteStock = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { id } = req.params;
+    const userId = getRequestUserId(req, res);
+    const id = getStockId(req, res);
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return sendError(res, {
-        statusCode: 400,
-        message: "Invalid stock ID",
-      });
-    }
+    if (!userId || !id) return null;
 
     const stock = await UserStock.findOneAndDelete({ _id: id, userId });
 
@@ -287,7 +306,9 @@ export const deleteStock = async (req, res) => {
  */
 export const getPortfolioSummary = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = getRequestUserId(req, res);
+
+    if (!userId) return null;
 
     const [portfolioValue, sectorBreakdown] = await Promise.all([
       UserStock.getUserPortfolioValue(userId),
@@ -316,7 +337,10 @@ export const getPortfolioSummary = async (req, res) => {
  */
 export const getWatchlist = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = getRequestUserId(req, res);
+
+    if (!userId) return null;
+
     const { page = 1, limit = 20, sortBy = "lastUpdated", sortOrder = "desc" } = queryFor(req);
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -356,7 +380,10 @@ export const getWatchlist = async (req, res) => {
  */
 export const bulkUpdatePrices = async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const userId = getRequestUserId(req, res);
+
+    if (!userId) return null;
+
     const { updates } = bodyFor(req); // Array of { id, currentPrice }
 
     if (!Array.isArray(updates) || updates.length === 0) {
@@ -409,16 +436,11 @@ export const bulkUpdatePrices = async (req, res) => {
  */
 export const toggleWatchlist = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { id } = req.params;
+    const userId = getRequestUserId(req, res);
+    const id = getStockId(req, res);
     const { watchlist } = bodyFor(req); // boolean
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return sendError(res, {
-        statusCode: 400,
-        message: "Invalid stock ID",
-      });
-    }
+    if (!userId || !id) return null;
 
     const stock = await UserStock.findOneAndUpdate(
       { _id: id, userId },
@@ -459,16 +481,11 @@ export const toggleWatchlist = async (req, res) => {
  */
 export const setAlerts = async (req, res) => {
   try {
-    const userId = req.user.userId;
-    const { id } = req.params;
+    const userId = getRequestUserId(req, res);
+    const id = getStockId(req, res);
     const { enabled, targetPrice, stopLoss } = bodyFor(req);
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return sendError(res, {
-        statusCode: 400,
-        message: "Invalid stock ID",
-      });
-    }
+    if (!userId || !id) return null;
 
     const updateData = {
       'alerts.enabled': Boolean(enabled),
