@@ -151,6 +151,64 @@ const formatScheme = (scheme) => ({
   lastFetchedAt: scheme.lastFetchedAt,
 });
 
+const formatSearchScheme = ({ scheme, snapshotResult, rank }) => {
+  const snapshot = snapshotResult?.data || null;
+  const navSource = snapshotResult?.source || null;
+  const navHistory = snapshot?.navHistory || [];
+  const previousNav = navHistory[1]?.nav ?? null;
+  const previousNavDate = navHistory[1]?.navDate || null;
+  const previousNavDateText = navHistory[1]?.date || null;
+
+  return {
+    rank,
+    schemeCode: scheme.schemeCode,
+    schemeName: snapshot?.schemeName || scheme.schemeName,
+    displayName: snapshot?.schemeName || scheme.schemeName,
+    fundName: snapshot?.schemeName || scheme.schemeName,
+    fundHouse: snapshot?.fundHouse || null,
+    schemeType: snapshot?.schemeType || null,
+    schemeCategory: snapshot?.schemeCategory || null,
+    isinGrowth: snapshot?.isinGrowth || scheme.isinGrowth || null,
+    isinDivReinvestment:
+      snapshot?.isinDivReinvestment || scheme.isinDivReinvestment || null,
+    latestNav: snapshot?.latestNav ?? null,
+    currentNav: snapshot?.latestNav ?? null,
+    price: snapshot?.latestNav ?? null,
+    previousNav,
+    previousNavDate,
+    previousNavDateText,
+    change: snapshot?.change ?? null,
+    changePercent: snapshot?.changePercent ?? null,
+    latestNavDate: snapshot?.latestNavDate || null,
+    latestNavDateText: snapshot?.latestNavDateText || null,
+    source: scheme.source,
+    navSource,
+    cachedUntil: snapshot?.cachedUntil || scheme.cachedUntil,
+    lastFetchedAt: snapshot?.lastFetchedAt || scheme.lastFetchedAt,
+    details: {
+      schemeCode: scheme.schemeCode,
+      schemeName: snapshot?.schemeName || scheme.schemeName,
+      fundHouse: snapshot?.fundHouse || null,
+      schemeType: snapshot?.schemeType || null,
+      schemeCategory: snapshot?.schemeCategory || null,
+      isinGrowth: snapshot?.isinGrowth || scheme.isinGrowth || null,
+      isinDivReinvestment:
+        snapshot?.isinDivReinvestment || scheme.isinDivReinvestment || null,
+      latestNav: snapshot?.latestNav ?? null,
+      latestNavDate: snapshot?.latestNavDate || null,
+      latestNavDateText: snapshot?.latestNavDateText || null,
+      previousNav,
+      previousNavDate,
+      previousNavDateText,
+      change: snapshot?.change ?? null,
+      changePercent: snapshot?.changePercent ?? null,
+      navHistoryCount: navHistory.length,
+      navHistory,
+      source: navSource,
+    },
+  };
+};
+
 const formatSnapshot = (
   snapshot,
   { includeHistory = false, historyLimit } = {},
@@ -300,6 +358,21 @@ const ensureSchemeListCache = async (forceRefresh = false) => {
   }
 };
 
+const getSearchMutualFundSnapshot = async ({ schemeCode, forceRefresh }) => {
+  try {
+    return await getMutualFundHistory({
+      schemeCode,
+      limit: 2,
+      forceRefresh,
+    });
+  } catch {
+    return getMutualFundSnapshot({
+      schemeCode,
+      forceRefresh,
+    });
+  }
+};
+
 export const searchMutualFundSchemes = async ({
   query,
   limit,
@@ -316,15 +389,48 @@ export const searchMutualFundSchemes = async ({
     MutualFundScheme.countDocuments(filter),
     MutualFundScheme.find(filter).sort({ schemeName: 1 }).limit(safeLimit).lean(),
   ]);
+  const snapshotResults = await Promise.allSettled(
+    schemes.map((scheme) =>
+      getSearchMutualFundSnapshot({
+        schemeCode: scheme.schemeCode,
+        forceRefresh,
+      }),
+    ),
+  );
+  const navFailedSchemeCodes = [];
+  const data = schemes.map((scheme, index) => {
+    const result = snapshotResults[index];
+
+    if (result.status === "fulfilled") {
+      return formatSearchScheme({
+        scheme,
+        snapshotResult: result.value,
+        rank: index + 1,
+      });
+    }
+
+    navFailedSchemeCodes.push(scheme.schemeCode);
+
+    return formatSearchScheme({
+      scheme,
+      snapshotResult: null,
+      rank: index + 1,
+    });
+  });
 
   return {
     source: cacheResult.source,
     warning: cacheResult.warning,
     query: cleanQuery || null,
     total,
-    count: schemes.length,
+    count: data.length,
     limit: safeLimit,
-    data: schemes.map(formatScheme),
+    meta: {
+      query: cleanQuery || null,
+      navEnriched: navFailedSchemeCodes.length === 0,
+      navFailedSchemeCodes,
+    },
+    data,
   };
 };
 

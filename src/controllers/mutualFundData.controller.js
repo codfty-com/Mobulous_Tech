@@ -59,6 +59,7 @@ export const searchMutualFunds = async (req, res) => {
         total: result.total,
         count: result.count,
         limit: result.limit,
+        ...(result.meta ? { meta: result.meta } : {}),
         ...(result.warning ? { warning: result.warning } : {}),
         data: result.data,
       },
