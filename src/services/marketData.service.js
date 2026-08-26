@@ -117,10 +117,6 @@ const DETAILED_QUOTE_FIELDS = [
   "exchangeTimezoneName",
   "exchangeTimezoneShortName",
   "regularMarketDayRange",
-  "regularMarketBid",
-  "regularMarketBidSize",
-  "regularMarketAsk",
-  "regularMarketAskSize",
   "averageDailyVolume10Day",
   "averageDailyVolume3Month",
   "fiftyDayAverage",
@@ -516,6 +512,19 @@ const fetchQuotesBySymbols = async (symbols) => {
   });
 };
 
+const fetchDetailedQuotesBySymbols = async (symbols) => {
+  if (!symbols.length) return {};
+
+  return yahooFinance.quote(
+    symbols,
+    {
+      fields: DETAILED_QUOTE_FIELDS,
+      return: "object",
+    },
+    { validateResult: false },
+  );
+};
+
 const fetchDetailedQuoteBySymbol = async (symbol) =>
   yahooFinance.quote(
     symbol,
@@ -671,24 +680,53 @@ const normalizeNewsArticle = (article) => {
   };
 };
 
-const normalizeStockSearchItem = ({ quote, rank, region }) => {
-  const symbol = quote.symbol || null;
-  const shortName = quote.shortName || quote.shortname || null;
-  const longName = quote.longName || quote.longname || null;
-
-  return {
-    rank,
+const normalizeStockSearchItem = ({ quote, detailQuote, rank, region }) => {
+  const symbol = detailQuote?.symbol || quote.symbol || null;
+  const shortName =
+    detailQuote?.shortName || quote.shortName || quote.shortname || null;
+  const longName =
+    detailQuote?.longName || quote.longName || quote.longname || null;
+  const fullExchangeName =
+    detailQuote?.fullExchangeName ||
+    quote.fullExchangeName ||
+    quote.exchDisp ||
+    null;
+  const exchangeCode = detailQuote?.exchange || quote.exchange || null;
+  const latest = normalizeMarketInstrument({
     symbol,
-    displayName: longName || shortName || symbol,
+    displayName: quote.displayName || detailQuote?.displayName,
     shortName,
     longName,
-    type: quote.quoteType || quote.typeDisp || null,
-    exchange:
-      quote.fullExchangeName || quote.exchange || quote.exchDisp || null,
-    exchangeCode: quote.exchange || null,
-    currency: quote.currency || null,
+    type:
+      detailQuote?.quoteType ||
+      detailQuote?.typeDisp ||
+      quote.quoteType ||
+      quote.typeDisp,
+    exchange: exchangeCode,
+    fullExchangeName,
+    currency: detailQuote?.currency || quote.currency,
+    marketState: detailQuote?.marketState,
+    price: detailQuote?.regularMarketPrice,
+    change: detailQuote?.regularMarketChange,
+    changePercent: detailQuote?.regularMarketChangePercent,
+    open: detailQuote?.regularMarketOpen,
+    dayHigh: detailQuote?.regularMarketDayHigh,
+    dayLow: detailQuote?.regularMarketDayLow,
+    previousClose: detailQuote?.regularMarketPreviousClose,
+    volume: detailQuote?.regularMarketVolume,
+    marketTime: detailQuote?.regularMarketTime,
+    fiftyTwoWeekHigh: detailQuote?.fiftyTwoWeekHigh,
+    fiftyTwoWeekLow: detailQuote?.fiftyTwoWeekLow,
+    rank,
     region,
+    trendType: MARKET_COLLECTION_TYPES.stockSearch,
+  });
+
+  return {
+    ...latest,
+    exchangeCode,
     score: toNumberOrNull(quote.score),
+    details: normalizeMoverDetailQuote(detailQuote),
     source: "yahoo-finance2",
   };
 };
@@ -697,6 +735,36 @@ const isStockQuote = (quote) =>
   String(quote?.quoteType || "")
     .trim()
     .toUpperCase() === "EQUITY";
+
+const normalizeSearchText = (value) =>
+  String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+const getSupplementalIndianSearchQuotes = ({
+  query,
+  region,
+  existingSymbols,
+}) => {
+  if (region !== "IN") return [];
+
+  const normalizedQuery = normalizeSearchText(query);
+
+  if (!normalizedQuery) return [];
+
+  return TOP_SHARE_MARKET_SYMBOLS.filter((symbol) => {
+    if (existingSymbols.has(symbol)) return false;
+
+    const symbolRoot = String(symbol).split(".")[0];
+
+    return normalizeSearchText(symbolRoot).includes(normalizedQuery);
+  }).map((symbol) => ({
+    symbol,
+    quoteType: "EQUITY",
+    score: 30000,
+  }));
+};
 
 const fetchStockSearchFromYahoo = async ({ query, region, count, lang }) => {
   const providerCount = Math.min(Math.max(count * 3, count), 50);
@@ -711,12 +779,51 @@ const fetchStockSearchFromYahoo = async ({ query, region, count, lang }) => {
     { validateResult: false },
   );
   const quotes = Array.isArray(result?.quotes) ? result.quotes : [];
-  const data = quotes
-    .filter(isStockQuote)
-    .slice(0, count)
-    .map((quote, index) =>
+  const providerSearchQuotes = quotes.filter(isStockQuote);
+  const existingSymbols = new Set(
+    providerSearchQuotes.map((quote) => quote.symbol).filter(Boolean),
+  );
+  const supplementalQuotes = getSupplementalIndianSearchQuotes({
+    query,
+    region,
+    existingSymbols,
+  });
+  const searchQuotes = [...supplementalQuotes, ...providerSearchQuotes].slice(
+    0,
+    count,
+  );
+  const symbols = searchQuotes.map((quote) => quote.symbol).filter(Boolean);
+  let quoteMap = {};
+  let quoteFailedSymbols = [];
+
+  if (symbols.length) {
+    try {
+      quoteMap = await fetchDetailedQuotesBySymbols(symbols);
+    } catch (error) {
+      console.warn("Stock search quote enrichment failed:", error.message);
+
+      const quoteResults = await Promise.allSettled(
+        symbols.map((symbol) => fetchDetailedQuoteBySymbol(symbol)),
+      );
+
+      quoteMap = quoteResults.reduce((items, result, index) => {
+        const symbol = symbols[index];
+
+        if (result.status === "fulfilled" && result.value) {
+          items[symbol] = result.value;
+        } else {
+          quoteFailedSymbols.push(symbol);
+        }
+
+        return items;
+      }, {});
+    }
+  }
+
+  const data = searchQuotes.map((quote, index) =>
       normalizeStockSearchItem({
         quote,
+        detailQuote: quoteMap[quote.symbol],
         rank: index + 1,
         region,
       }),
@@ -728,6 +835,8 @@ const fetchStockSearchFromYahoo = async ({ query, region, count, lang }) => {
       providerCount: toNumberOrNull(result?.count),
       requestedQuoteCount: providerCount,
       totalTimeMs: toNumberOrNull(result?.totalTime),
+      quoteEnriched: quoteFailedSymbols.length === 0,
+      quoteFailedSymbols,
     },
     data,
   };

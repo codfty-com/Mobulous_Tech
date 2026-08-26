@@ -45,7 +45,7 @@ export const env = {
     2,
   ),
   jwtSecret: process.env.JWT_SECRET?.trim() || "",
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN?.trim() || "15m",
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN?.trim() || "180m",
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET?.trim() || "",
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN?.trim() || "7d",
   emailUser: process.env.EMAIL_USER?.trim() || "",
