@@ -21,11 +21,19 @@ const getTransporter = () => {
   return transporter;
 };
 
-export const sendEmail = async (to, subject, text) => {
-  await getTransporter().sendMail({
+export const sendEmail = async (to, subject, message) => {
+  const mail = {
     from: env.emailUser,
     to,
     subject,
-    text,
-  });
+  };
+
+  if (typeof message === "string") {
+    mail.text = message;
+  } else {
+    mail.text = message.text;
+    mail.html = message.html;
+  }
+
+  await getTransporter().sendMail(mail);
 };

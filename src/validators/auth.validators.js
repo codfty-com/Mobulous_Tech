@@ -170,3 +170,28 @@ export const resetPasswordSchema = {
     });
   },
 };
+
+export const changePasswordSchema = {
+  body(body) {
+    const errors = [];
+    const oldPassword = normalizeString(body.oldPassword);
+    const newPassword = validatePassword(
+      body.newPassword,
+      "newPassword",
+      errors,
+    );
+
+    if (!oldPassword) {
+      errors.push("oldPassword is required");
+    }
+
+    if (oldPassword && newPassword && oldPassword === newPassword) {
+      errors.push("newPassword must be different from oldPassword");
+    }
+
+    return buildResult(errors, {
+      oldPassword,
+      newPassword,
+    });
+  },
+};
