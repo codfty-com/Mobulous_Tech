@@ -3,10 +3,14 @@ import { authenticateRequest, requireAdmin } from "../middlewares/jwt.js";
 import {
   refreshToken,
   revokeToken,
+  logout,
   logoutAll,
   cleanupTokens,
   getCurrentUser,
+  changePassword,
 } from "../controllers/auth.controller.js";
+import { validateRequest } from "../middlewares/validateRequest.js";
+import { changePasswordSchema } from "../validators/auth.validators.js";
 
 const router = express.Router();
 
@@ -25,6 +29,13 @@ router.post("/auth/refresh-token", refreshToken);
 router.post("/auth/revoke-token", revokeToken);
 
 /**
+ * @route   POST /api/auth/logout
+ * @desc    Logout current authenticated session and clear auth cookies
+ * @access  Private (JWT required)
+ */
+router.post("/auth/logout", authenticateRequest, logout);
+
+/**
  * @route   POST /api/auth/logout-all
  * @desc    Revoke all refresh tokens for authenticated user (logout from all devices)
  * @access  Private (JWT required)
@@ -37,6 +48,18 @@ router.post("/auth/logout-all", authenticateRequest, logoutAll);
  * @access  Private (JWT required)
  */
 router.get("/auth/me", authenticateRequest, getCurrentUser);
+
+/**
+ * @route   POST /api/auth/change-password
+ * @desc    Change password for authenticated email/password user
+ * @access  Private (JWT required)
+ */
+router.post(
+  "/auth/change-password",
+  authenticateRequest,
+  validateRequest(changePasswordSchema),
+  changePassword,
+);
 
 /**
  * @route   POST /api/auth/cleanup-tokens

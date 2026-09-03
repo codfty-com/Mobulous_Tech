@@ -2,6 +2,7 @@ import User from "../models/user.js";
 import bcrypt from "bcryptjs";
 import { env } from "../config/env.js";
 import { sendEmail } from "../utils/sendEmail.js";
+import { buildOtpEmail } from "../utils/otpEmailTemplate.js";
 import { createOtpRecord, isOtpExpired, matchesOtp } from "../utils/otp.js";
 
 const OTP_EXPIRY_MINUTES = env.otpExpiryMinutes;
@@ -20,11 +21,14 @@ const setSignupOtp = (user) => {
 
 const sendSignupOtpEmail = async (email, otp) => {
   try {
-    await sendEmail(
-      email,
-      "OTP for Signup Verification",
-      `Your signup OTP is ${otp}. It is valid for ${OTP_EXPIRY_MINUTES} minutes.`,
-    );
+    const emailContent = buildOtpEmail({
+      otp,
+      title: "Your OTP Code",
+      purpose: "account verification",
+      expiryMinutes: OTP_EXPIRY_MINUTES,
+    });
+
+    await sendEmail(email, emailContent.subject, emailContent);
 
     return { sent: true };
   } catch (error) {

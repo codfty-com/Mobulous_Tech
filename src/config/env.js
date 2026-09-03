@@ -25,7 +25,7 @@ const vercelBaseUrl = process.env.VERCEL_URL?.trim();
 const hostingerBaseUrl = process.env.HOSTINGER_URL?.trim();
 
 export const env = {
-  appName: process.env.APP_NAME?.trim() || "Mobulous Tech API",
+  appName: process.env.APP_NAME?.trim() || "Asset Heaven",
   nodeEnv,
   isProduction: nodeEnv === "production",
   port,
