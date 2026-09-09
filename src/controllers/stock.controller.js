@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 const bodyFor = (req) => req.validated?.body || req.body;
 const queryFor = (req) => req.validated?.query || req.query;
 const validObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+const transactionOptions = ["buy", "sell"];
 
 const getRequestUserId = (req, res) => {
   const userId = req.user?.userId;
@@ -34,6 +35,35 @@ const getStockId = (req, res) => {
   return id;
 };
 
+const sameStockIdentity = (left, right) =>
+  left.symbol === right.symbol;
+
+const validateLedgerChange = async ({ userId, existing, next, excludeId }) => {
+  const nextAvailable = await UserStock.getNetQuantity(userId, {
+    symbol: next.symbol,
+    exchange: next.exchange,
+    excludeId,
+  });
+  const nextQuantity = nextAvailable + (next.transactionType === "sell" ? -next.quantity : next.quantity);
+
+  if (nextQuantity < 0) {
+    return `Cannot sell ${next.quantity} shares of ${next.symbol}. Available quantity is ${Math.max(nextAvailable, 0)}.`;
+  }
+
+  if (existing && !sameStockIdentity(existing, next)) {
+    const originalRemaining = await UserStock.getNetQuantity(userId, {
+      symbol: existing.symbol,
+      exchange: existing.exchange,
+      excludeId,
+    });
+    if (originalRemaining < 0) {
+      return `This change would leave ${existing.symbol} with a negative quantity.`;
+    }
+  }
+
+  return null;
+};
+
 /**
  * Add a new stock (POST)
  * POST /api/stocks
@@ -50,6 +80,11 @@ export const addStock = async (req, res) => {
       lastUpdated: new Date(),
     };
 
+    const ledgerError = await validateLedgerChange({ userId, next: stockData });
+    if (ledgerError) {
+      return sendError(res, { statusCode: 409, message: ledgerError });
+    }
+
     const stock = new UserStock(stockData);
     await stock.save();
 
@@ -57,6 +92,7 @@ export const addStock = async (req, res) => {
       statusCode: 201,
       message: "Stock added successfully",
       data: stock,
+      transactionOptions,
     });
   } catch (error) {
     console.error("Add stock error:", error);
@@ -65,7 +101,11 @@ export const addStock = async (req, res) => {
     if (error.code === 11000) {
       return sendError(res, {
         statusCode: 409,
-        message: "You already have this stock in your collection",
+        message: "A database uniqueness constraint blocked this stock transaction",
+        details: {
+          duplicateFields: Object.keys(error.keyPattern || error.keyValue || {}),
+          action: "Run npm run migrate:stock-indexes if the legacy userId/symbol index is still unique",
+        },
       });
     }
 
@@ -161,6 +201,7 @@ export const getStocks = async (req, res) => {
         pages: Math.ceil(total / parseInt(limit)),
       },
       summary: portfolioSummary,
+      transactionOptions,
     });
   } catch (error) {
     console.error("Get stocks error:", error);
@@ -194,6 +235,7 @@ export const getStockById = async (req, res) => {
     return sendSuccess(res, {
       message: "Stock fetched successfully",
       data: stock,
+      transactionOptions,
     });
   } catch (error) {
     console.error("Get stock by ID error:", error);
@@ -215,10 +257,31 @@ export const updateStock = async (req, res) => {
 
     if (!userId || !id) return null;
 
-    // Don't allow userId to be changed
+    const existingStock = await UserStock.findOne({ _id: id, userId });
+    if (!existingStock) {
+      return sendError(res, { statusCode: 404, message: "Stock not found" });
+    }
+
+    // Don't allow userId to be changed.
     const updateData = { ...bodyFor(req) };
     delete updateData.userId;
     updateData.lastUpdated = new Date();
+
+    const nextStock = {
+      symbol: updateData.symbol ?? existingStock.symbol,
+      exchange: updateData.exchange ?? existingStock.exchange,
+      quantity: updateData.quantity ?? existingStock.quantity,
+      transactionType: updateData.transactionType ?? existingStock.transactionType,
+    };
+    const ledgerError = await validateLedgerChange({
+      userId,
+      existing: existingStock,
+      next: nextStock,
+      excludeId: id,
+    });
+    if (ledgerError) {
+      return sendError(res, { statusCode: 409, message: ledgerError });
+    }
 
     const stock = await UserStock.findOneAndUpdate(
       { _id: id, userId },
@@ -236,6 +299,7 @@ export const updateStock = async (req, res) => {
     return sendSuccess(res, {
       message: "Stock updated successfully",
       data: stock,
+      transactionOptions,
     });
   } catch (error) {
     console.error("Update stock error:", error);
@@ -244,7 +308,11 @@ export const updateStock = async (req, res) => {
     if (error.code === 11000) {
       return sendError(res, {
         statusCode: 409,
-        message: "A stock entry with these unique fields already exists",
+        message: "A database uniqueness constraint blocked this stock transaction",
+        details: {
+          duplicateFields: Object.keys(error.keyPattern || error.keyValue || {}),
+          action: "Run npm run migrate:stock-indexes if the legacy userId/symbol index is still unique",
+        },
       });
     }
 
@@ -274,6 +342,26 @@ export const deleteStock = async (req, res) => {
 
     if (!userId || !id) return null;
 
+    const existingStock = await UserStock.findOne({ _id: id, userId });
+
+    if (!existingStock) {
+      return sendError(res, { statusCode: 404, message: "Stock not found" });
+    }
+
+    if (existingStock.transactionType === "buy") {
+      const remainingQuantity = await UserStock.getNetQuantity(userId, {
+        symbol: existingStock.symbol,
+        exchange: existingStock.exchange,
+        excludeId: id,
+      });
+      if (remainingQuantity < 0) {
+        return sendError(res, {
+          statusCode: 409,
+          message: "Cannot delete this buy transaction because later sell transactions depend on it",
+        });
+      }
+    }
+
     const stock = await UserStock.findOneAndDelete({ _id: id, userId });
 
     if (!stock) {
@@ -297,6 +385,28 @@ export const deleteStock = async (req, res) => {
       statusCode: 500,
       message: "Failed to delete stock",
     });
+  }
+};
+
+/**
+ * Get consolidated open stock holdings for the authenticated user.
+ * GET /api/stocks/holdings
+ */
+export const getStockHoldings = async (req, res) => {
+  try {
+    const userId = getRequestUserId(req, res);
+    if (!userId) return null;
+
+    const data = await UserStock.getUserHoldings(userId);
+    return sendSuccess(res, {
+      message: "Stock holdings fetched successfully",
+      data,
+      count: data.length,
+      transactionOptions,
+    });
+  } catch (error) {
+    console.error("Get stock holdings error:", error);
+    return sendError(res, { message: "Failed to fetch stock holdings" });
   }
 };
 
@@ -487,10 +597,11 @@ export const setAlerts = async (req, res) => {
 
     if (!userId || !id) return null;
 
-    const updateData = {
-      'alerts.enabled': Boolean(enabled),
-      lastUpdated: new Date(),
-    };
+    const updateData = { lastUpdated: new Date() };
+
+    if (enabled !== undefined) {
+      updateData['alerts.enabled'] = enabled;
+    }
 
     if (targetPrice !== undefined) {
       updateData['alerts.targetPrice'] = targetPrice;

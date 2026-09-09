@@ -16,6 +16,7 @@ import {
   updateStock,
   deleteStock,
   getPortfolioSummary,
+  getStockHoldings,
   getWatchlist,
   bulkUpdatePrices,
   toggleWatchlist,
@@ -50,6 +51,13 @@ router.get("/stocks", validateRequest(getStocksQuerySchema), getStocks);
 router.get("/stocks/summary", getPortfolioSummary);
 
 /**
+ * @route   GET /api/stocks/holdings
+ * @desc    Get consolidated open positions after applying buy/sell transactions
+ * @access  Private (JWT required)
+ */
+router.get("/stocks/holdings", getStockHoldings);
+
+/**
  * @route   GET /api/stocks/watchlist
  * @desc    Get user's watchlist stocks only
  * @access  Private (JWT required)
@@ -81,6 +89,7 @@ router.get("/stocks/:id", getStockById);
  * @access  Private (JWT required)
  */
 router.put("/stocks/:id", validateRequest(updateStockSchema), updateStock);
+router.patch("/stocks/:id", validateRequest(updateStockSchema), updateStock);
 
 /**
  * @route   PATCH /api/stocks/:id/watchlist
