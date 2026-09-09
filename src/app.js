@@ -70,8 +70,6 @@ app.use((req, res, next) => {
 
 app.use(docsRoutes);
 app.use("/api", docsRoutes);
-app.use(assetsRoutes);
-app.use("/api", assetsRoutes);
 
 const dbPromise = connectDB();
 
@@ -83,6 +81,9 @@ app.use(async (req, res, next) => {
     next(err);
   }
 });
+
+app.use(assetsRoutes);
+app.use("/api", assetsRoutes);
 
 apiRouter.use(userRoutes);
 apiRouter.use(resetPassRoutes);

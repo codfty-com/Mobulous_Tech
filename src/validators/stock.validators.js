@@ -8,7 +8,7 @@ const normalizeNumber = (value) => {
     return undefined;
   }
   const num = Number(value);
-  return isNaN(num) ? undefined : num;
+  return Number.isFinite(num) ? num : undefined;
 };
 
 const normalizeBoolean = (value) => {
@@ -74,8 +74,14 @@ export const addStockSchema = {
 
     // Alerts object
     const alerts = {};
-    if (body.alerts && typeof body.alerts === "object") {
-      alerts.enabled = Boolean(body.alerts.enabled);
+    if (body.alerts !== undefined && (!body.alerts || typeof body.alerts !== "object" || Array.isArray(body.alerts))) {
+      errors.push("Alerts must be an object");
+    } else if (body.alerts) {
+      if (body.alerts.enabled !== undefined) {
+        const enabled = normalizeBoolean(body.alerts.enabled);
+        if (enabled === undefined) errors.push("Alerts enabled must be a boolean");
+        else alerts.enabled = enabled;
+      }
       if (body.alerts.targetPrice !== undefined) {
         alerts.targetPrice = normalizeNumber(body.alerts.targetPrice);
       }
@@ -101,19 +107,23 @@ export const addStockSchema = {
 
     if (quantity === undefined) {
       errors.push("Quantity is required");
-    } else if (quantity < 0) {
-      errors.push("Quantity cannot be negative");
+    } else if (quantity <= 0) {
+      errors.push("Quantity must be greater than zero");
     }
 
-    if (purchasePrice !== undefined && purchasePrice < 0) {
+    if (purchasePrice === undefined) {
+      errors.push(
+        body.purchasePrice !== undefined || body.price !== undefined
+          ? "Price must be a valid number"
+          : "Price or purchasePrice is required",
+      );
+    } else if (purchasePrice < 0) {
       errors.push("Purchase price cannot be negative");
     }
 
-    if (body.price !== undefined && purchasePrice === undefined) {
-      errors.push("Price must be a valid number");
-    }
-
-    if (currentPrice !== undefined && currentPrice < 0) {
+    if (body.currentPrice !== undefined && currentPrice === undefined) {
+      errors.push("Current price must be a valid number");
+    } else if (currentPrice !== undefined && currentPrice < 0) {
       errors.push("Current price cannot be negative");
     }
 
@@ -131,10 +141,14 @@ export const addStockSchema = {
 
     if (dividendYield !== undefined && dividendYield < 0) {
       errors.push("Dividend yield cannot be negative");
+    } else if (body.dividendYield !== undefined && dividendYield === undefined) {
+      errors.push("Dividend yield must be a valid number");
     }
 
     if (peRatio !== undefined && peRatio < 0) {
       errors.push("PE ratio cannot be negative");
+    } else if (body.peRatio !== undefined && peRatio === undefined) {
+      errors.push("PE ratio must be a valid number");
     }
 
     if (marketCap && !MARKET_CAP_OPTIONS.includes(marketCap)) {
@@ -151,10 +165,14 @@ export const addStockSchema = {
 
     if (alerts.targetPrice !== undefined && alerts.targetPrice < 0) {
       errors.push("Target price cannot be negative");
+    } else if (body.alerts?.targetPrice !== undefined && alerts.targetPrice === undefined) {
+      errors.push("Target price must be a valid number");
     }
 
     if (alerts.stopLoss !== undefined && alerts.stopLoss < 0) {
       errors.push("Stop loss cannot be negative");
+    } else if (body.alerts?.stopLoss !== undefined && alerts.stopLoss === undefined) {
+      errors.push("Stop loss must be a valid number");
     }
 
     const data = {
@@ -231,8 +249,8 @@ export const updateStockSchema = {
       const quantity = normalizeNumber(body.quantity);
       if (quantity === undefined) {
         errors.push("Quantity must be a valid number");
-      } else if (quantity < 0) {
-        errors.push("Quantity cannot be negative");
+      } else if (quantity <= 0) {
+        errors.push("Quantity must be greater than zero");
       } else {
         data.quantity = quantity;
       }
@@ -253,13 +271,9 @@ export const updateStockSchema = {
 
     if (body.currentPrice !== undefined) {
       const currentPrice = normalizeNumber(body.currentPrice);
-      if (currentPrice !== undefined) {
-        if (currentPrice < 0) {
-          errors.push("Current price cannot be negative");
-        } else {
-          data.currentPrice = currentPrice;
-        }
-      }
+      if (currentPrice === undefined) errors.push("Current price must be a valid number");
+      else if (currentPrice < 0) errors.push("Current price cannot be negative");
+      else data.currentPrice = currentPrice;
     }
 
     if (body.exchange !== undefined) {
@@ -309,24 +323,16 @@ export const updateStockSchema = {
 
     if (body.dividendYield !== undefined) {
       const dividendYield = normalizeNumber(body.dividendYield);
-      if (dividendYield !== undefined) {
-        if (dividendYield < 0) {
-          errors.push("Dividend yield cannot be negative");
-        } else {
-          data.dividendYield = dividendYield;
-        }
-      }
+      if (dividendYield === undefined) errors.push("Dividend yield must be a valid number");
+      else if (dividendYield < 0) errors.push("Dividend yield cannot be negative");
+      else data.dividendYield = dividendYield;
     }
 
     if (body.peRatio !== undefined) {
       const peRatio = normalizeNumber(body.peRatio);
-      if (peRatio !== undefined) {
-        if (peRatio < 0) {
-          errors.push("PE ratio cannot be negative");
-        } else {
-          data.peRatio = peRatio;
-        }
-      }
+      if (peRatio === undefined) errors.push("PE ratio must be a valid number");
+      else if (peRatio < 0) errors.push("PE ratio cannot be negative");
+      else data.peRatio = peRatio;
     }
 
     if (body.notes !== undefined) {
@@ -349,38 +355,38 @@ export const updateStockSchema = {
       else data.watchlist = watchlist;
     }
 
-    if (body.alerts !== undefined && typeof body.alerts === "object") {
+    if (body.alerts !== undefined && (!body.alerts || typeof body.alerts !== "object" || Array.isArray(body.alerts))) {
+      errors.push("Alerts must be an object");
+    } else if (body.alerts !== undefined) {
       const alerts = {};
       
       if (body.alerts.enabled !== undefined) {
-        alerts.enabled = Boolean(body.alerts.enabled);
+        const enabled = normalizeBoolean(body.alerts.enabled);
+        if (enabled === undefined) errors.push("Alerts enabled must be a boolean");
+        else alerts.enabled = enabled;
       }
       
       if (body.alerts.targetPrice !== undefined) {
         const targetPrice = normalizeNumber(body.alerts.targetPrice);
-        if (targetPrice !== undefined) {
-          if (targetPrice < 0) {
-            errors.push("Target price cannot be negative");
-          } else {
-            alerts.targetPrice = targetPrice;
-          }
-        }
+        if (targetPrice === undefined) errors.push("Target price must be a valid number");
+        else if (targetPrice < 0) errors.push("Target price cannot be negative");
+        else alerts.targetPrice = targetPrice;
       }
       
       if (body.alerts.stopLoss !== undefined) {
         const stopLoss = normalizeNumber(body.alerts.stopLoss);
-        if (stopLoss !== undefined) {
-          if (stopLoss < 0) {
-            errors.push("Stop loss cannot be negative");
-          } else {
-            alerts.stopLoss = stopLoss;
-          }
-        }
+        if (stopLoss === undefined) errors.push("Stop loss must be a valid number");
+        else if (stopLoss < 0) errors.push("Stop loss cannot be negative");
+        else alerts.stopLoss = stopLoss;
       }
 
       if (Object.keys(alerts).length > 0) {
         data.alerts = alerts;
       }
+    }
+
+    if (!Object.keys(data).length) {
+      errors.push("At least one stock field is required");
     }
 
     return buildResult(errors, data);
@@ -427,8 +433,8 @@ export const getStocksQuerySchema = {
 
     if (query.page !== undefined) {
       const page = normalizeNumber(query.page);
-      if (page === undefined || page < 1) {
-        errors.push("Page must be a positive number");
+      if (!Number.isInteger(page) || page < 1) {
+        errors.push("Page must be a positive integer");
       } else {
         data.page = page;
       }
@@ -436,8 +442,8 @@ export const getStocksQuerySchema = {
 
     if (query.limit !== undefined) {
       const limit = normalizeNumber(query.limit);
-      if (limit === undefined || limit < 1 || limit > 100) {
-        errors.push("Limit must be between 1 and 100");
+      if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+        errors.push("Limit must be an integer between 1 and 100");
       } else {
         data.limit = limit;
       }

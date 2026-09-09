@@ -8,10 +8,16 @@
     "node": "24.x"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run build && npm run test:routes && npm run test:auth && npm run test:assets && npm run test:stocks",
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "build": "node scripts/check-syntax.js"
+    "build": "node scripts/check-syntax.js",
+    "test:routes": "node scripts/check-routes.js",
+    "test:auth": "node scripts/check-auth.js",
+    "test:assets": "node scripts/check-assets.js",
+    "test:stocks": "node scripts/check-stocks.js",
+    "migrate:stock-indexes": "node scripts/migrate-stock-transaction-indexes.js",
+    "seed:assets": "node scripts/seed-assets.js"
   },
   "repository": {
     "type": "git",

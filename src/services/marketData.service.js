@@ -896,18 +896,36 @@ const fetchMarketNewsFromYahoo = async ({ query, region, count, lang }) => {
 };
 
 const fetchTrendingSymbolsFromYahoo = async ({ region, count, lang }) => {
-  const response = await axios.get(
-    `https://query2.finance.yahoo.com/v1/finance/trending/${encodeURIComponent(region)}`,
-    {
-      params: {
-        count,
-        region,
-        lang,
+  const fetchRegion = async (requestedRegion, requestedLang) => {
+    const response = await axios.get(
+      `https://query2.finance.yahoo.com/v1/finance/trending/${encodeURIComponent(requestedRegion)}`,
+      {
+        params: {
+          count,
+          region: requestedRegion,
+          lang: requestedLang,
+        },
+        timeout: 12000,
       },
-      timeout: 12000,
-    },
-  );
-  const result = response.data?.finance?.result?.[0];
+    );
+
+    return response.data?.finance?.result?.[0];
+  };
+
+  let effectiveRegion = region;
+  let effectiveLang = lang;
+  let result = await fetchRegion(effectiveRegion, effectiveLang);
+  let fallbackUsed = false;
+
+  // Yahoo currently returns an empty trending collection for some valid
+  // regions (including IN). Keep the endpoint useful and make the fallback
+  // explicit in metadata instead of returning a provider-driven 502.
+  if (!result?.quotes?.length && effectiveRegion !== "US") {
+    effectiveRegion = "US";
+    effectiveLang = normalizeLang(effectiveRegion);
+    result = await fetchRegion(effectiveRegion, effectiveLang);
+    fallbackUsed = true;
+  }
 
   if (!result?.quotes?.length) {
     throw new Error(`No trending symbols returned for region ${region}`);
@@ -931,14 +949,17 @@ const fetchTrendingSymbolsFromYahoo = async ({ region, count, lang }) => {
       jobTimestamp: toDate(result.jobTimestamp),
       startInterval: toDate(result.startInterval),
       count,
-      lang,
+      requestedRegion: region,
+      effectiveRegion,
+      effectiveLang,
+      fallbackUsed,
     },
     data: symbols.map((symbol, index) =>
       normalizeTrendingItem({
         symbol,
         quote: quoteMap[symbol],
         rank: index + 1,
-        region,
+        region: effectiveRegion,
       }),
     ),
   };

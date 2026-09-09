@@ -4,7 +4,9 @@ Local base URL: `http://localhost:4500`
 
 Deployed base URL: `https://mobulous-tech.vercel.app`
 
-Important: The app mounts routes both directly and under `/api`. The primary URLs below use `/api` where applicable. Root aliases also work for the same router endpoints, for example `/create-user`, `/users`, `/market-data`, and `/mutual-fund-data`.
+Use the `/api` URLs below for every application integration. Only the API-list and asset routers currently also expose root aliases; those aliases are compatibility routes and should not be used by new clients.
+
+Protected endpoints require `Authorization: Bearer <accessToken>`. Admin endpoints require the same header with a token whose `admin` claim is `true`. JSON endpoints use `Content-Type: application/json`.
 
 ## 1. Get API List Markdown
 
@@ -35,6 +37,7 @@ Important: The app mounts routes both directly and under `/api`. The primary URL
 | Parameter | Required | Default | Example |
 |---|---:|---|---|
 | `status` | No | all statuses | `available` or `coming_soon` |
+| `isActive` | No | all | `true` or `false` |
 
 - Purpose: Returns asset categories for frontend screens: stocks, mutual funds, ETF, fixed deposit, metals, ULIP, cash, and others.
 - Default response includes all asset categories.
@@ -56,6 +59,36 @@ Example item:
   "examples": ["HDFC Bank", "Reliance", "Apple"]
 }
 ```
+
+### Asset administration and net worth
+
+| Method | Production URL | Auth | Payload / query |
+|---|---|---|---|
+| `GET` | `https://mobulous-tech.vercel.app/api/assets/:id` | Public | No payload; `id` is the asset MongoDB `_id` |
+| `POST` | `https://mobulous-tech.vercel.app/api/assets` | Admin | Asset JSON shown below |
+| `PATCH` or `PUT` | `https://mobulous-tech.vercel.app/api/assets/:id` | Admin | Any non-empty subset of the asset JSON fields |
+| `DELETE` | `https://mobulous-tech.vercel.app/api/assets/:id` | Admin | No payload |
+| `GET` | `https://mobulous-tech.vercel.app/api/assets/net-worth` | Required | No payload; optional `userId` query is admin-only for another user |
+
+Create-asset payload (`key` and `name` required):
+
+```json
+{
+  "key": "etf",
+  "name": "ETF",
+  "icon": "https://example.com/etf.svg",
+  "description": "Exchange-traded funds",
+  "status": "coming_soon",
+  "dataRoute": null,
+  "searchParam": null,
+  "examples": ["NIFTYBEES"],
+  "valuationSource": "none",
+  "sortOrder": 3,
+  "isActive": true
+}
+```
+
+Allowed `status`: `available`, `coming_soon`, `disabled`. Allowed `valuationSource`: `stocks`, `mutual_funds`, `none`.
 
 ## 3. Create User / Signup
 
@@ -128,6 +161,20 @@ Example item:
 
 - Note: Requires Google client ID environment configuration.
 
+### Token and authenticated-session APIs
+
+| Method | Production URL | Auth | Payload |
+|---|---|---|---|
+| `POST` | `https://mobulous-tech.vercel.app/api/auth/refresh-token` | Public | `{ "refreshToken": "<refresh-token>" }` |
+| `POST` | `https://mobulous-tech.vercel.app/api/auth/revoke-token` | Public | `{ "refreshToken": "<refresh-token>" }` |
+| `POST` | `https://mobulous-tech.vercel.app/api/auth/logout` | Required | Optional `{ "refreshToken": "<refresh-token>" }` |
+| `POST` | `https://mobulous-tech.vercel.app/api/auth/logout-all` | Required | No payload |
+| `GET` | `https://mobulous-tech.vercel.app/api/auth/me` | Required | No payload |
+| `POST` | `https://mobulous-tech.vercel.app/api/auth/change-password` | Required | `{ "oldPassword": "OldPass123", "newPassword": "NewPass456" }` |
+| `POST` | `https://mobulous-tech.vercel.app/api/auth/cleanup-tokens` | Admin | No payload |
+
+Access tokens are sent as `Authorization: Bearer <accessToken>`. The refresh and revoke endpoints accept refresh tokens only in the JSON body.
+
 ## 7. Get All Users
 
 - Method: `GET`
@@ -191,6 +238,7 @@ Query params:
 - Deployed URL: `https://mobulous-tech.vercel.app/api/users/:_id`
 - Example local URL: `http://localhost:4500/api/users/64abc123abc123abc123abcd`
 - Headers: `Content-Type: application/json`
+- Auth: Required. A user can update only their own profile; an admin can update any profile.
 - Payload:
 
 ```json
@@ -204,13 +252,14 @@ Query params:
 - Allowed fields: `name`, `phone`, `profilePicture`
 - Note: Send `null` or `""` for `phone` or `profilePicture` to remove them.
 
-## 11. Delete User By ID
+## 11. Delete User By ID (Admin)
 
 - Method: `DELETE`
-- Local URL: `http://localhost:4500/api/users/:_id`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/users/:_id`
-- Example local URL: `http://localhost:4500/api/users/64abc123abc123abc123abcd`
+- Local URL: `http://localhost:4500/api/admin/users/:_id`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users/:_id`
+- Example local URL: `http://localhost:4500/api/admin/users/64abc123abc123abc123abcd`
 - Payload: Not required
+- Auth: Admin access required.
 
 ## 12. Forgot Password / Send OTP
 
@@ -252,11 +301,12 @@ Query params:
 ```json
 {
   "email": "john@example.com",
+  "otp": "123456",
   "newPassword": "NewSecurePass456"
 }
 ```
 
-- Note: Current controller does not require `otp` in this payload.
+- Required fields: `email`, the unexpired 6-digit `otp`, and `newPassword` (minimum 8 characters). A successful reset consumes the OTP.
 
 ## 15A. Search Stocks
 
@@ -738,7 +788,8 @@ Query params:
 - Method: `POST`
 - Local URL: `http://localhost:4500/api/market-data/refresh`
 - Deployed URL: `https://mobulous-tech.vercel.app/api/market-data/refresh`
-- Headers: `Content-Type: application/json`
+- Headers: `Content-Type: application/json`, `Authorization: Bearer <accessToken>`
+- Auth: Required.
 - Payload:
 
 ```json
@@ -815,7 +866,8 @@ Query params:
 - Method: `POST`
 - Local URL: `http://localhost:4500/api/mutual-fund-data/refresh`
 - Deployed URL: `https://mobulous-tech.vercel.app/api/mutual-fund-data/refresh`
-- Headers: `Content-Type: application/json`
+- Headers: `Content-Type: application/json`, `Authorization: Bearer <accessToken>`
+- Auth: Required.
 - Payload option 1:
 
 ```json
@@ -893,10 +945,12 @@ These are represented in `GET /api/market-data/home`, but do not have standalone
 }
 ```
 
-- Required fields: `symbol`, `name`, `quantity`
-- Optional fields: All others. `price` is accepted as a frontend-friendly alias for `purchasePrice`; if `currentPrice` is omitted, `price` is also used as `currentPrice`.
-- Calculated response fields include `totalInvestment` and `totalValue` as `purchasePrice * quantity`.
+- Required fields: `symbol`, `name`, `quantity`, and either `price` or `purchasePrice`.
+- `quantity` must be greater than zero. The transaction type controls whether it adds to or subtracts from the holding.
+- `price` is accepted as a frontend-friendly alias for `purchasePrice`; for a sell row it is the sale price. If `currentPrice` is omitted, `price` is also used as `currentPrice`.
+- Calculated response fields include `transactionValue`, `signedQuantity`, and the legacy `totalInvestment`/`totalValue` aliases.
 - `transactionType` must be `buy` or `sell`; default is `buy`.
+- A sell is rejected with `409` when its quantity exceeds the authenticated user's available quantity for that symbol.
 - `transactionDate` is accepted as the manual transaction date. `purchaseDate` remains supported for older clients.
 - Supported market caps: `Large Cap`, `Mid Cap`, `Small Cap`, `Micro Cap`
 
@@ -923,7 +977,16 @@ These are represented in `GET /api/market-data/home`, but do not have standalone
 | `sortOrder` | No | `desc` | `asc` or `desc` |
 
 - Example local URL: `http://localhost:4500/api/stocks?sector=Energy&watchlist=true&page=1&limit=20&sortBy=currentPrice&sortOrder=desc`
-- Response includes: stocks array, pagination info, and portfolio summary
+- Response includes: transaction rows, pagination info, signed portfolio summary, and `transactionOptions: ["buy", "sell"]`. Every row contains its own `transactionType`.
+
+## 57A. Get Consolidated Stock Holdings
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/stocks/holdings`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks/holdings`
+- Headers: `Authorization: Bearer <JWT_TOKEN>`
+- Payload: Not required
+- Purpose: Groups all buy and sell transactions by symbol and returns only open positions with net quantity, latest current price, current value, net investment, and profit/loss.
 
 ## 58. Get Portfolio Summary
 
@@ -962,16 +1025,16 @@ These are represented in `GET /api/market-data/home`, but do not have standalone
 - Headers: `Authorization: Bearer <JWT_TOKEN>`
 - Payload: Not required
 
-## 61. Update Stock Details
+## 61. Update Stock Transaction
 
-- Method: `PUT`
+- Method: `PATCH` or `PUT`
 - Local URL: `http://localhost:4500/api/stocks/:id`
 - Deployed URL: `https://mobulous-tech.vercel.app/api/stocks/:id`
 - Example local URL: `http://localhost:4500/api/stocks/64abc123abc123abc123abcd`
 - Headers: 
   - `Content-Type: application/json`
   - `Authorization: Bearer <JWT_TOKEN>`
-- Payload (all fields optional):
+- Payload: Send at least one field. A change is rejected if it would make the user's quantity for that symbol negative.
 
 ```json
 {
@@ -1132,3 +1195,111 @@ Example add payload:
 The response includes calculated `totalValue` as the invested amount. In the example above, `investedAmount` is calculated as `quantity * price`.
 
 List holdings query params: `search`, `transactionType=buy|sell`, `page`, `limit`, and `sortOrder=asc|desc`.
+
+Update payload: send any non-empty subset of the add fields. `quantity` aliases `units`, `price` aliases `purchaseNav`, and `transactionDate` aliases `purchaseDate`. The `GET`, `PATCH`/`PUT`, and `DELETE` `:id` routes use the holding MongoDB `_id` returned by the add/list APIs. Delete has no request payload.
+
+---
+
+## 67. Expense APIs
+
+`GET /api/expenses/categories` is public and has no payload. It returns: `food`, `shopping`, `transport`, `bills`, and `entertainment`. Every other expense endpoint requires `Authorization: Bearer <accessToken>` and operates only on the authenticated user's records.
+
+| Action | Method | Production URL | Payload / query |
+|---|---|---|---|
+| Categories | `GET` | `https://mobulous-tech.vercel.app/api/expenses/categories` | No payload |
+| Add | `POST` | `https://mobulous-tech.vercel.app/api/expenses` | Expense JSON shown below |
+| List | `GET` | `https://mobulous-tech.vercel.app/api/expenses` | Query: `category`, `search`, `from`/`dateFrom`, `to`/`dateTo`, `page`, `limit`, `sortOrder` |
+| Summary | `GET` | `https://mobulous-tech.vercel.app/api/expenses/summary` | Query: `budget`/`totalBudget`, `from`/`dateFrom`, `to`/`dateTo` |
+| Get one | `GET` | `https://mobulous-tech.vercel.app/api/expenses/:id` | No payload |
+| Update | `PATCH` or `PUT` | `https://mobulous-tech.vercel.app/api/expenses/:id` | Any non-empty subset of the expense fields |
+| Delete | `DELETE` | `https://mobulous-tech.vercel.app/api/expenses/:id` | No payload |
+
+Add-expense payload (`amount` and `category` required):
+
+```json
+{
+  "amount": 850.5,
+  "category": "food",
+  "notes": "Dinner",
+  "expenseDate": "2026-09-09T18:30:00.000Z"
+}
+```
+
+`transactionDate` is accepted as an alias for `expenseDate`. `limit` defaults to `50` and is capped at `100`; `sortOrder` is `asc` or `desc`.
+
+---
+
+## Complete route index
+
+This index is the authoritative list of primary `/api` routes implemented in `src/app.js`. `Body: none` means do not send a JSON payload; use the documented path or query parameters instead.
+
+| Method | Path | Access | Body |
+|---|---|---|---|
+| `GET` | `/` | Public | None |
+| `GET` | `/api/api-list` | Public | None |
+| `GET` | `/api/assets` | Public | None |
+| `GET` | `/api/assets/net-worth` | User | None |
+| `POST` | `/api/assets` | Admin | Asset object |
+| `GET` | `/api/assets/:id` | Public | None |
+| `PATCH`, `PUT` | `/api/assets/:id` | Admin | Partial asset object |
+| `DELETE` | `/api/assets/:id` | Admin | None |
+| `POST` | `/api/create-user` | Public | `name`, `email`, `password`; optional `phone` |
+| `POST` | `/api/verify-email-otp` | Public | `email`, `otp` |
+| `POST` | `/api/login-user` | Public | `email`, `password` |
+| `POST` | `/api/login-google` | Public | `idToken` |
+| `GET` | `/api/admin/users` | Admin | None |
+| `GET` | `/api/admin/users/search` | Admin | None |
+| `GET`, `DELETE` | `/api/admin/users/:_id` | Admin | None |
+| `PATCH` | `/api/users/:_id` | User/owner or admin | Partial profile object |
+| `POST` | `/api/forgot-password` | Public | `email` |
+| `POST` | `/api/verify-otp` | Public | `email`, `otp` |
+| `POST` | `/api/reset-password` | Public | `email`, `otp`, `newPassword` |
+| `POST` | `/api/auth/refresh-token` | Public | `refreshToken` |
+| `POST` | `/api/auth/revoke-token` | Public | `refreshToken` |
+| `POST` | `/api/auth/logout` | User | Optional `refreshToken` |
+| `POST` | `/api/auth/logout-all` | User | None |
+| `GET` | `/api/auth/me` | User | None |
+| `POST` | `/api/auth/change-password` | User | `oldPassword`, `newPassword` |
+| `POST` | `/api/auth/cleanup-tokens` | Admin | None |
+| `GET` | `/api/markets` | Public | None |
+| `GET` | `/api/stocks?query=...` | Public symbol search | None |
+| `GET` | `/api/market-trend-lists` | Public | None |
+| `GET` | `/api/market-data` | Public | None |
+| `GET` | `/api/market-data/trending` | Public | None |
+| `GET` | `/api/market-data/movers` | Public | None |
+| `GET` | `/api/market-data/movers/:listId/:id` | Public | None |
+| `GET` | `/api/market-data/top-gainers/details` | Public | None |
+| `GET` | `/api/market-data/top-gainers/:id` | Public | None |
+| `GET` | `/api/market-data/top-losers/:id` | Public | None |
+| `GET` | `/api/market-data/top-shares` | Public | None |
+| `GET` | `/api/market-data/top-shares/:period` | Public | None |
+| `GET` | `/api/market-data/overview` | Public | None |
+| `GET` | `/api/market-data/home` | Public | None |
+| `GET` | `/api/market-data/:marketKey` | Public | None |
+| `GET` | `/api/market-news` | Public | None |
+| `GET` | `/api/market-news/live` | Public | None |
+| `GET` | `/api/market-news/related` | Public | None |
+| `GET` | `/api/market-news/symbol/:symbol` | Public | None |
+| `POST` | `/api/market-data/refresh` | User | Optional `keys` array |
+| `GET` | `/api/mutual-funds` | Public | None |
+| `GET` | `/api/mutual-fund-data` | Public | None |
+| `GET` | `/api/mutual-fund-data/:schemeCode/history` | Public | None |
+| `GET` | `/api/mutual-fund-data/:schemeCode` | Public | None |
+| `POST` | `/api/mutual-fund-data/refresh` | User | Optional `schemeCodes` array or `schemeCode` |
+| `POST`, `GET` | `/api/stocks` | User | Add body for `POST`; none for portfolio `GET` |
+| `GET` | `/api/stocks/summary` | User | None |
+| `GET` | `/api/stocks/holdings` | User | None |
+| `GET` | `/api/stocks/watchlist` | User | None |
+| `PATCH` | `/api/stocks/prices` | User | `updates` array |
+| `GET`, `DELETE` | `/api/stocks/:id` | User | None |
+| `PATCH`, `PUT` | `/api/stocks/:id` | User | Partial stock transaction object |
+| `PATCH` | `/api/stocks/:id/watchlist` | User | `watchlist` boolean |
+| `PATCH` | `/api/stocks/:id/alerts` | User | `enabled`, `targetPrice`, `stopLoss` |
+| `POST`, `GET` | `/api/mutual-fund-holdings` | User | Add body for `POST`; none for `GET` |
+| `GET`, `DELETE` | `/api/mutual-fund-holdings/:id` | User | None |
+| `PATCH`, `PUT` | `/api/mutual-fund-holdings/:id` | User | Partial holding object |
+| `GET` | `/api/expenses/categories` | Public | None |
+| `POST`, `GET` | `/api/expenses` | User | Add body for `POST`; none for `GET` |
+| `GET` | `/api/expenses/summary` | User | None |
+| `GET`, `DELETE` | `/api/expenses/:id` | User | None |
+| `PATCH`, `PUT` | `/api/expenses/:id` | User | Partial expense object |

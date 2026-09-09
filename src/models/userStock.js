@@ -28,7 +28,7 @@ const userStockSchema = new mongoose.Schema(
     quantity: {
       type: Number,
       required: true,
-      min: [0, "Quantity cannot be negative"],
+      min: [Number.MIN_VALUE, "Quantity must be greater than zero"],
       default: 1,
     },
     purchasePrice: {
@@ -121,6 +121,8 @@ const userStockSchema = new mongoose.Schema(
 
 // Compound indexes for efficient queries
 userStockSchema.index({ userId: 1, symbol: 1 });
+userStockSchema.index({ userId: 1, symbol: 1, transactionDate: 1 });
+userStockSchema.index({ userId: 1, transactionType: 1, transactionDate: -1 });
 userStockSchema.index({ userId: 1, watchlist: 1 });
 userStockSchema.index({ userId: 1, sector: 1 });
 userStockSchema.index({ userId: 1, exchange: 1 });
@@ -136,6 +138,19 @@ userStockSchema.virtual("totalInvestment").get(function () {
 
 userStockSchema.virtual("totalValue").get(function () {
   return this.totalInvestment;
+});
+
+// Signed fields make each record usable as a transaction ledger entry.
+userStockSchema.virtual("signedQuantity").get(function () {
+  return (this.transactionType === "sell" ? -1 : 1) * this.quantity;
+});
+
+userStockSchema.virtual("transactionValue").get(function () {
+  return this.totalInvestment;
+});
+
+userStockSchema.virtual("price").get(function () {
+  return this.purchasePrice;
 });
 
 // Virtual for calculating current value
@@ -170,16 +185,46 @@ userStockSchema.virtual("profitLossPercentage").get(function () {
 userStockSchema.statics.getUserPortfolioValue = async function (userId) {
   const pipeline = [
     { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    { $sort: { transactionDate: 1, createdAt: 1 } },
     {
       $group: {
-        _id: null,
-        totalInvestment: {
-          $sum: { $multiply: ["$purchasePrice", "$quantity"] },
+        _id: "$symbol",
+        netQuantity: {
+          $sum: {
+            $cond: [
+              { $eq: ["$transactionType", "sell"] },
+              { $multiply: [-1, "$quantity"] },
+              "$quantity",
+            ],
+          },
         },
+        netInvestment: {
+          $sum: {
+            $multiply: [
+              { $cond: [{ $eq: ["$transactionType", "sell"] }, -1, 1] },
+              { $ifNull: ["$purchasePrice", 0] },
+              "$quantity",
+            ],
+          },
+        },
+        currentPrice: { $last: { $ifNull: ["$currentPrice", "$purchasePrice"] } },
+        transactions: { $sum: 1 },
+        buyTransactions: { $sum: { $cond: [{ $eq: ["$transactionType", "buy"] }, 1, 0] } },
+        sellTransactions: { $sum: { $cond: [{ $eq: ["$transactionType", "sell"] }, 1, 0] } },
+      },
+    },
+    {
+      $group: {
+        _id: 0,
+        totalInvestment: { $sum: "$netInvestment" },
         totalCurrentValue: {
-          $sum: { $multiply: ["$currentPrice", "$quantity"] },
+          $sum: { $multiply: ["$netQuantity", { $ifNull: ["$currentPrice", 0] }] },
         },
-        totalStocks: { $sum: 1 },
+        totalQuantity: { $sum: "$netQuantity" },
+        totalStocks: { $sum: { $cond: [{ $gt: ["$netQuantity", 0] }, 1, 0] } },
+        totalTransactions: { $sum: "$transactions" },
+        buyTransactions: { $sum: "$buyTransactions" },
+        sellTransactions: { $sum: "$sellTransactions" },
       },
     },
     {
@@ -187,19 +232,17 @@ userStockSchema.statics.getUserPortfolioValue = async function (userId) {
         _id: 0,
         totalInvestment: 1,
         totalCurrentValue: 1,
+        totalQuantity: 1,
         totalStocks: 1,
-        totalProfitLoss: {
-          $subtract: ["$totalCurrentValue", "$totalInvestment"],
-        },
+        totalTransactions: 1,
+        buyTransactions: 1,
+        sellTransactions: 1,
+        totalProfitLoss: { $subtract: ["$totalCurrentValue", "$totalInvestment"] },
         totalProfitLossPercentage: {
-          $multiply: [
-            {
-              $divide: [
-                { $subtract: ["$totalCurrentValue", "$totalInvestment"] },
-                "$totalInvestment",
-              ],
-            },
-            100,
+          $cond: [
+            { $eq: ["$totalInvestment", 0] },
+            0,
+            { $multiply: [{ $divide: [{ $subtract: ["$totalCurrentValue", "$totalInvestment"] }, "$totalInvestment"] }, 100] },
           ],
         },
       },
@@ -211,7 +254,11 @@ userStockSchema.statics.getUserPortfolioValue = async function (userId) {
     result[0] || {
       totalInvestment: 0,
       totalCurrentValue: 0,
+      totalQuantity: 0,
       totalStocks: 0,
+      totalTransactions: 0,
+      buyTransactions: 0,
+      sellTransactions: 0,
       totalProfitLoss: 0,
       totalProfitLossPercentage: 0,
     }
@@ -222,15 +269,40 @@ userStockSchema.statics.getUserPortfolioValue = async function (userId) {
 userStockSchema.statics.getStocksBySector = async function (userId) {
   const pipeline = [
     { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    { $sort: { transactionDate: 1, createdAt: 1 } },
     {
       $group: {
-        _id: "$sector",
-        count: { $sum: 1 },
-        totalInvestment: {
-          $sum: { $multiply: ["$purchasePrice", "$quantity"] },
+        _id: { sector: { $ifNull: ["$sector", "Uncategorized"] }, symbol: "$symbol" },
+        transactions: { $sum: 1 },
+        quantity: {
+          $sum: {
+            $multiply: [
+              { $cond: [{ $eq: ["$transactionType", "sell"] }, -1, 1] },
+              "$quantity",
+            ],
+          },
         },
+        totalInvestment: {
+          $sum: {
+            $multiply: [
+              { $cond: [{ $eq: ["$transactionType", "sell"] }, -1, 1] },
+              { $ifNull: ["$purchasePrice", 0] },
+              "$quantity",
+            ],
+          },
+        },
+        currentPrice: { $last: { $ifNull: ["$currentPrice", "$purchasePrice"] } },
+      },
+    },
+    {
+      $group: {
+        _id: "$_id.sector",
+        count: { $sum: { $cond: [{ $gt: ["$quantity", 0] }, 1, 0] } },
+        transactions: { $sum: "$transactions" },
+        quantity: { $sum: "$quantity" },
+        totalInvestment: { $sum: "$totalInvestment" },
         totalCurrentValue: {
-          $sum: { $multiply: ["$currentPrice", "$quantity"] },
+          $sum: { $multiply: ["$quantity", { $ifNull: ["$currentPrice", 0] }] },
         },
       },
     },
@@ -238,20 +310,18 @@ userStockSchema.statics.getStocksBySector = async function (userId) {
       $project: {
         sector: "$_id",
         count: 1,
+        transactions: 1,
+        quantity: 1,
         totalInvestment: 1,
         totalCurrentValue: 1,
         profitLoss: {
           $subtract: ["$totalCurrentValue", "$totalInvestment"],
         },
         profitLossPercentage: {
-          $multiply: [
-            {
-              $divide: [
-                { $subtract: ["$totalCurrentValue", "$totalInvestment"] },
-                "$totalInvestment",
-              ],
-            },
-            100,
+          $cond: [
+            { $eq: ["$totalInvestment", 0] },
+            0,
+            { $multiply: [{ $divide: [{ $subtract: ["$totalCurrentValue", "$totalInvestment"] }, "$totalInvestment"] }, 100] },
           ],
         },
       },
@@ -260,6 +330,101 @@ userStockSchema.statics.getStocksBySector = async function (userId) {
   ];
 
   return await this.aggregate(pipeline);
+};
+
+userStockSchema.statics.getNetQuantity = async function (
+  userId,
+  { symbol, exchange, excludeId } = {},
+) {
+  const match = { userId: new mongoose.Types.ObjectId(userId), symbol };
+  if (excludeId) match._id = { $ne: new mongoose.Types.ObjectId(excludeId) };
+
+  const result = await this.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: null,
+        quantity: {
+          $sum: {
+            $multiply: [
+              { $cond: [{ $eq: ["$transactionType", "sell"] }, -1, 1] },
+              "$quantity",
+            ],
+          },
+        },
+      },
+    },
+  ]);
+
+  return result[0]?.quantity || 0;
+};
+
+userStockSchema.statics.getUserHoldings = async function (userId) {
+  return this.aggregate([
+    { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    { $sort: { transactionDate: 1, createdAt: 1 } },
+    {
+      $group: {
+        _id: "$symbol",
+        name: { $last: "$name" },
+        icon: { $last: "$icon" },
+        exchange: { $last: "$exchange" },
+        sector: { $last: "$sector" },
+        currency: { $last: "$currency" },
+        currentPrice: { $last: { $ifNull: ["$currentPrice", "$purchasePrice"] } },
+        quantity: {
+          $sum: {
+            $multiply: [
+              { $cond: [{ $eq: ["$transactionType", "sell"] }, -1, 1] },
+              "$quantity",
+            ],
+          },
+        },
+        netInvestment: {
+          $sum: {
+            $multiply: [
+              { $cond: [{ $eq: ["$transactionType", "sell"] }, -1, 1] },
+              { $ifNull: ["$purchasePrice", 0] },
+              "$quantity",
+            ],
+          },
+        },
+        transactionCount: { $sum: 1 },
+        lastTransactionDate: { $max: "$transactionDate" },
+      },
+    },
+    { $match: { quantity: { $gt: 0 } } },
+    {
+      $project: {
+        _id: 0,
+        symbol: "$_id",
+        exchange: 1,
+        name: 1,
+        icon: 1,
+        sector: 1,
+        currency: 1,
+        currentPrice: 1,
+        quantity: 1,
+        netInvestment: 1,
+        currentValue: { $multiply: ["$quantity", { $ifNull: ["$currentPrice", 0] }] },
+        transactionCount: 1,
+        lastTransactionDate: 1,
+      },
+    },
+    {
+      $set: {
+        profitLoss: { $subtract: ["$currentValue", "$netInvestment"] },
+        profitLossPercentage: {
+          $cond: [
+            { $eq: ["$netInvestment", 0] },
+            0,
+            { $multiply: [{ $divide: [{ $subtract: ["$currentValue", "$netInvestment"] }, "$netInvestment"] }, 100] },
+          ],
+        },
+      },
+    },
+    { $sort: { currentValue: -1, symbol: 1 } },
+  ]);
 };
 
 // Ensure virtuals are included in JSON
