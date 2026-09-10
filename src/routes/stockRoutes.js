@@ -5,6 +5,7 @@ import {
   addStockSchema,
   updateStockSchema,
   getStocksQuerySchema,
+  netWorthQuerySchema,
   bulkUpdatePricesSchema,
   toggleWatchlistSchema,
   setAlertsSchema,
@@ -17,6 +18,7 @@ import {
   deleteStock,
   getPortfolioSummary,
   getStockHoldings,
+  getStockNetWorth,
   getWatchlist,
   bulkUpdatePrices,
   toggleWatchlist,
@@ -56,6 +58,17 @@ router.get("/stocks/summary", getPortfolioSummary);
  * @access  Private (JWT required)
  */
 router.get("/stocks/holdings", getStockHoldings);
+
+/**
+ * @route   GET /api/stocks/net-worth
+ * @desc    Get the logged-in user's total stock net worth
+ * @access  Private (JWT required; user is derived from the token)
+ */
+router.get(
+  "/stocks/net-worth",
+  validateRequest(netWorthQuerySchema),
+  getStockNetWorth,
+);
 
 /**
  * @route   GET /api/stocks/watchlist

@@ -1,6 +1,12 @@
 import UserStock from "../src/models/userStock.js";
-import { addStock, setAlerts } from "../src/controllers/stock.controller.js";
-import { addStockSchema, updateStockSchema } from "../src/validators/stock.validators.js";
+import axios from "axios";
+import { addStock, getStockNetWorth, setAlerts } from "../src/controllers/stock.controller.js";
+import { getStockNetWorthHistory } from "../src/services/stockNetWorth.service.js";
+import {
+  addStockSchema,
+  netWorthQuerySchema,
+  updateStockSchema,
+} from "../src/validators/stock.validators.js";
 
 const userId = "000000000000000000000001";
 const makeResponse = () => ({
@@ -42,6 +48,43 @@ if (addStockSchema.body({ symbol: "ABC", name: "ABC Ltd", quantity: 1 }).success
 }
 if (updateStockSchema.body({}).success) {
   throw new Error("An empty stock update was accepted");
+}
+if (
+  netWorthQuerySchema.query({ period: "3 months" }).data.period !== "3months" ||
+  netWorthQuerySchema.query({ period: "1y" }).data.period !== "1year" ||
+  netWorthQuerySchema.query({ period: "two weeks" }).success
+) {
+  throw new Error("Net-worth period validation is incorrect");
+}
+
+const originalAxiosGet = axios.get;
+axios.get = async () => ({
+  data: {
+    chart: {
+      result: [{
+        timestamp: [Date.UTC(2026, 0, 1, 18) / 1000, Date.UTC(2026, 0, 2, 18) / 1000],
+        indicators: { quote: [{ close: [100, 110] }] },
+      }],
+    },
+  },
+});
+const periodHistory = await getStockNetWorthHistory({
+  period: "3months",
+  transactions: [{
+    symbol: "RELIANCE.NS",
+    quantity: 5,
+    purchasePrice: 100,
+    transactionType: "buy",
+    transactionDate: new Date(Date.UTC(2026, 0, 2)),
+  }],
+});
+axios.get = originalAxiosGet;
+if (
+  periodHistory.performance.netContributions !== 500 ||
+  periodHistory.performance.profitLoss !== 50 ||
+  periodHistory.performance.profitLossPercentage !== 10
+) {
+  throw new Error("Net-worth period profit calculation is incorrect");
 }
 
 const sellDocument = new UserStock({ userId, ...sell.data });
@@ -112,6 +155,39 @@ if (
   "alerts.enabled" in capturedAlertUpdate
 ) {
   throw new Error("Partial alert update incorrectly changed the enabled state");
+}
+
+const originalGetUserPortfolioValue = UserStock.getUserPortfolioValue;
+let netWorthUserId;
+UserStock.getUserPortfolioValue = async (requestedUserId) => {
+  netWorthUserId = requestedUserId;
+  return {
+    totalCurrentValue: 31500,
+    totalInvestment: 28000,
+    totalProfitLoss: 3500,
+    totalProfitLossPercentage: 12.5,
+    totalStocks: 2,
+    totalQuantity: 15,
+  };
+};
+const netWorthResponse = makeResponse();
+await getStockNetWorth(
+  {
+    user: { userId },
+    query: { userId: "000000000000000000000099" },
+  },
+  netWorthResponse,
+);
+UserStock.getUserPortfolioValue = originalGetUserPortfolioValue;
+
+if (
+  netWorthResponse.statusCode !== 200 ||
+  netWorthUserId !== userId ||
+  netWorthResponse.body.data.totalNetWorth !== 31500 ||
+  netWorthResponse.body.data.totalInvestedValue !== 28000 ||
+  netWorthResponse.body.data.holdingsCount !== 2
+) {
+  throw new Error("Stock net-worth endpoint did not remain scoped to the JWT user");
 }
 
 console.log("Stock buy/sell validation, output, and oversell checks passed.");

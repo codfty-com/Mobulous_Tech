@@ -1,6 +1,7 @@
 import UserStock from "../models/userStock.js";
 import { sendSuccess, sendError } from "../utils/http.js";
 import mongoose from "mongoose";
+import { getStockNetWorthHistory } from "../services/stockNetWorth.service.js";
 
 const bodyFor = (req) => req.validated?.body || req.body;
 const queryFor = (req) => req.validated?.query || req.query;
@@ -407,6 +408,80 @@ export const getStockHoldings = async (req, res) => {
   } catch (error) {
     console.error("Get stock holdings error:", error);
     return sendError(res, { message: "Failed to fetch stock holdings" });
+  }
+};
+
+/**
+ * Get the authenticated user's stock-only net worth.
+ * GET /api/stocks/net-worth
+ *
+ * The user id is intentionally read only from the verified JWT payload. This
+ * prevents a caller from using a query or body parameter to access another
+ * user's portfolio value.
+ */
+export const getStockNetWorth = async (req, res) => {
+  try {
+    const userId = getRequestUserId(req, res);
+    if (!userId) return null;
+
+    const { period = "all" } = queryFor(req);
+    const calculatedAt = new Date();
+    const [portfolio, transactions] = await Promise.all([
+      UserStock.getUserPortfolioValue(userId),
+      period === "all"
+        ? Promise.resolve([])
+        : UserStock.find({ userId })
+            .select("symbol quantity purchasePrice transactionType transactionDate")
+            .lean(),
+    ]);
+
+    const history =
+      period === "all"
+        ? null
+        : await getStockNetWorthHistory({ transactions, period });
+
+    const performance = history
+      ? history.performance
+      : {
+          available: true,
+          period: "all",
+          label: "All time",
+          startDate: null,
+          endDate: calculatedAt,
+          startNetWorth: null,
+          endNetWorth: portfolio.totalCurrentValue,
+          profitLoss: portfolio.totalProfitLoss,
+          profitLossPercentage: portfolio.totalProfitLossPercentage,
+        };
+
+    return sendSuccess(res, {
+      message: "Stock net worth fetched successfully",
+      data: {
+        currency: "INR",
+        totalNetWorth: portfolio.totalCurrentValue,
+        totalInvestedValue: portfolio.totalInvestment,
+        totalProfitLoss: portfolio.totalProfitLoss,
+        totalProfitLossPercentage: portfolio.totalProfitLossPercentage,
+        holdingsCount: portfolio.totalStocks,
+        totalQuantity: portfolio.totalQuantity,
+        period: performance,
+        history: history?.points || [],
+        ...(history?.unavailableSymbols?.length
+          ? {
+              warning:
+                "Historical performance excludes symbols whose market-price history is unavailable.",
+              unavailableSymbols: history.unavailableSymbols,
+            }
+          : {}),
+        calculatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Get stock net worth error:", error);
+    return sendError(res, {
+      statusCode: 500,
+      message: "Failed to fetch stock net worth",
+    });
   }
 };
 
