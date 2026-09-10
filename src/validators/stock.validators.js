@@ -46,6 +46,48 @@ const buildResult = (errors, data) =>
 const normalizeTransactionType = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : value;
 
+const NET_WORTH_PERIOD_ALIASES = {
+  all: "all",
+  week: "weekly",
+  weekly: "weekly",
+  "1w": "weekly",
+  "1week": "weekly",
+  "3m": "3months",
+  "3month": "3months",
+  "3months": "3months",
+  "6m": "6months",
+  "6month": "6months",
+  "6months": "6months",
+  "1y": "1year",
+  "1year": "1year",
+  "3y": "3years",
+  "3year": "3years",
+  "3years": "3years",
+};
+
+export const netWorthQuerySchema = {
+  query(query) {
+    if (query.period === undefined) {
+      return { success: true, data: { period: "all" } };
+    }
+
+    const normalized = String(query.period)
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]/g, "");
+    const period = NET_WORTH_PERIOD_ALIASES[normalized];
+
+    return period
+      ? { success: true, data: { period } }
+      : {
+          success: false,
+          errors: [
+            "period must be one of: weekly, 3months, 6months, 1year, 3years, all",
+          ],
+        };
+  },
+};
+
 export const addStockSchema = {
   body(body) {
     const errors = [];

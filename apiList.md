@@ -998,6 +998,17 @@ These are represented in `GET /api/market-data/home`, but do not have standalone
 - Purpose: Returns overall portfolio statistics and breakdown by sector
 - Response includes: totalInvestment, totalCurrentValue, totalProfitLoss, totalProfitLossPercentage, sector-wise breakdown
 
+## 58A. Get Logged-in User's Stock Net Worth
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/stocks/net-worth`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/stocks/net-worth`
+- Headers: `Authorization: Bearer <JWT_TOKEN>`
+- Query params: `period=weekly|3months|6months|1year|3years|all` (default: `all`). Short forms such as `1y`, `3y`, `3m`, and `6m` are also accepted.
+- Purpose: Returns the total current value of the authenticated user's stock holdings only. The owner is obtained exclusively from the verified JWT; a `userId` supplied in a request cannot select another user's data. For a selected period, the response also replays that user's buy/sell transactions against historical market closing prices.
+- Response includes: `totalNetWorth`, `totalInvestedValue`, `totalProfitLoss`, `totalProfitLossPercentage`, `holdingsCount`, `totalQuantity`, `period` (including period P/L, P/L percent, and net contributions), `history`, and `calculatedAt`.
+- Example: `http://localhost:4500/api/stocks/net-worth?period=3months`
+
 ## 59. Get Watchlist Stocks
 
 - Method: `GET`
@@ -1289,6 +1300,7 @@ This index is the authoritative list of primary `/api` routes implemented in `sr
 | `POST`, `GET` | `/api/stocks` | User | Add body for `POST`; none for portfolio `GET` |
 | `GET` | `/api/stocks/summary` | User | None |
 | `GET` | `/api/stocks/holdings` | User | None |
+| `GET` | `/api/stocks/net-worth` | User | Optional `period`; owner is always the JWT user |
 | `GET` | `/api/stocks/watchlist` | User | None |
 | `PATCH` | `/api/stocks/prices` | User | `updates` array |
 | `GET`, `DELETE` | `/api/stocks/:id` | User | None |
