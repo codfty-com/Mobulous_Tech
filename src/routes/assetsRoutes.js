@@ -17,12 +17,13 @@ import {
 
 const router = express.Router();
 
+router.use("/assets", authenticateRequest);
 router.get("/assets", validateRequest(getAssetsQuerySchema), getAssets);
-router.get("/assets/net-worth", authenticateRequest, getNetWorth);
-router.post("/assets", authenticateRequest, requireAdmin, validateRequest(createAssetSchema), createAsset);
+router.get("/assets/net-worth", getNetWorth);
+router.post("/assets", requireAdmin, validateRequest(createAssetSchema), createAsset);
 router.get("/assets/:id", getAssetById);
-router.patch("/assets/:id", authenticateRequest, requireAdmin, validateRequest(updateAssetSchema), updateAsset);
-router.put("/assets/:id", authenticateRequest, requireAdmin, validateRequest(updateAssetSchema), updateAsset);
-router.delete("/assets/:id", authenticateRequest, requireAdmin, deleteAsset);
+router.patch("/assets/:id", requireAdmin, validateRequest(updateAssetSchema), updateAsset);
+router.put("/assets/:id", requireAdmin, validateRequest(updateAssetSchema), updateAsset);
+router.delete("/assets/:id", requireAdmin, deleteAsset);
 
 export default router;

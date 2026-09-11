@@ -10,7 +10,7 @@ const buildAsset = (body, required) => {
   const data = {};
 
   for (const [field, maxLength] of [
-    ["key", 50], ["name", 100], ["icon", 500], ["description", 500],
+    ["assetId", 50], ["key", 50], ["name", 100], ["icon", 500], ["description", 500],
     ["dataRoute", 200], ["searchParam", 50],
   ]) {
     if (body[field] === undefined) continue;
@@ -20,7 +20,7 @@ const buildAsset = (body, required) => {
     }
     const value = trimmedString(body[field]);
     if (value === undefined) errors.push(`${field} must be a string`);
-    else if (!value && ["key", "name"].includes(field)) errors.push(`${field} cannot be empty`);
+    else if (!value && ["assetId", "key", "name"].includes(field)) errors.push(`${field} cannot be empty`);
     else if (value.length > maxLength) errors.push(`${field} cannot exceed ${maxLength} characters`);
     else data[field] = field === "key" ? value.toLowerCase() : value;
   }
@@ -52,10 +52,10 @@ const buildAsset = (body, required) => {
     }
   }
 
-  if (body.sortOrder !== undefined) {
-    const value = Number(body.sortOrder);
-    if (!Number.isInteger(value) || value < 0) errors.push("sortOrder must be a non-negative integer");
-    else data.sortOrder = value;
+  if (body.displayOrder !== undefined) {
+    const value = Number(body.displayOrder);
+    if (!Number.isInteger(value) || value < 0) errors.push("displayOrder must be a non-negative integer");
+    else data.displayOrder = value;
   }
 
   if (body.isActive !== undefined) {

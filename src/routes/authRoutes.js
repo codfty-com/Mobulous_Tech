@@ -17,16 +17,16 @@ const router = express.Router();
 /**
  * @route   POST /api/auth/refresh-token
  * @desc    Refresh access token using refresh token
- * @access  Public
+ * @access  Public - needed to obtain a new access token after expiry
  */
 router.post("/auth/refresh-token", refreshToken);
 
 /**
  * @route   POST /api/auth/revoke-token
  * @desc    Revoke a specific refresh token (logout from this device)
- * @access  Public
+ * @access  Private (JWT required)
  */
-router.post("/auth/revoke-token", revokeToken);
+router.post("/auth/revoke-token", authenticateRequest, revokeToken);
 
 /**
  * @route   POST /api/auth/logout

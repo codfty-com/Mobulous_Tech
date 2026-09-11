@@ -16,7 +16,10 @@ const assetIdFor = (req, res) => {
 const assetError = (res, error, fallbackMessage) => {
   console.error(`${fallbackMessage}:`, error);
   if (error.code === 11000) {
-    return sendError(res, { statusCode: 409, message: "An asset with this key already exists" });
+    return sendError(res, {
+      statusCode: 409,
+      message: "An asset with this key or assetId already exists",
+    });
   }
   if (error.name === "ValidationError") {
     return sendError(res, {
@@ -35,7 +38,7 @@ export const getAssets = async (req, res) => {
     if (status) filter.status = status;
     if (isActive !== undefined) filter.isActive = isActive;
 
-    const data = await Asset.find(filter).sort({ sortOrder: 1, name: 1 });
+    const data = await Asset.find(filter).sort({ displayOrder: 1, name: 1 });
     return sendSuccess(res, {
       message: "Assets fetched successfully",
       data,

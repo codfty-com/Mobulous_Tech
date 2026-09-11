@@ -19,18 +19,17 @@ try {
         $set: {
           ...asset,
           valuationSource: valuationSourceFor(asset.key),
-          sortOrder: index,
+          displayOrder: asset.displayOrder ?? index,
           isActive: true,
         },
+        $unset: { totalHoldingAmounts: "", sortOrder: "" },
       },
       upsert: true,
     },
   }));
 
   const result = await Asset.bulkWrite(operations);
-  console.log(
-    `Asset seed complete: ${result.upsertedCount} inserted, ${result.modifiedCount} updated.`,
-  );
+  console.log(`Asset seed complete: ${result.upsertedCount} inserted, ${result.modifiedCount} updated.`);
 } catch (error) {
   console.error("Asset seed failed:", error);
   process.exitCode = 1;
