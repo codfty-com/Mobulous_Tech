@@ -28,8 +28,8 @@ const cases = [
   [mutualFundHoldingRoutes, ["POST /mutual-fund-holdings", "GET /mutual-fund-holdings", "GET /mutual-fund-holdings/:id", "PATCH /mutual-fund-holdings/:id", "PUT /mutual-fund-holdings/:id", "DELETE /mutual-fund-holdings/:id"]],
   [resetPassRoutes, ["POST /forgot-password", "POST /verify-otp", "POST /reset-password"]],
   [stockRoutes, ["POST /stocks", "GET /stocks", "GET /stocks/summary", "GET /stocks/holdings", "GET /stocks/net-worth", "GET /stocks/watchlist", "PATCH /stocks/prices", "GET /stocks/:id", "PUT /stocks/:id", "PATCH /stocks/:id", "PATCH /stocks/:id/watchlist", "PATCH /stocks/:id/alerts", "DELETE /stocks/:id"]],
-  [portfolioRoutes, ["GET /portfolio/dashboard", "GET /portfolio/history", "GET /portfolio/categories/:categoryKey", "POST /portfolio/holdings", "PATCH /portfolio/holdings/:holdingId", "DELETE /portfolio/holdings/:holdingId"]],
-  [userRoutes, ["POST /create-user", "POST /verify-email-otp", "POST /login-user", "POST /login-google", "GET /admin/users", "GET /admin/users/search", "GET /admin/users/:_id", "DELETE /admin/users/:_id", "PATCH /users/:_id"]],
+  [portfolioRoutes, ["GET /portfolio/dashboard", "GET /portfolio/history", "GET /portfolio/categories/:categoryKey", "GET /portfolio/accounts", "POST /portfolio/accounts", "PATCH /portfolio/accounts/:accountId", "DELETE /portfolio/accounts/:accountId", "GET /portfolio/instruments", "POST /portfolio/instruments", "PATCH /portfolio/instruments/:instrumentId", "POST /portfolio/holdings", "PATCH /portfolio/holdings/:holdingId", "DELETE /portfolio/holdings/:holdingId"]],
+  [userRoutes, ["POST /create-user", "POST /verify-email-otp", "POST /login-user", "POST /login-google", "GET /admin/users", "GET /admin/users/search", "GET /admin/users/:_id", "DELETE /admin/users/:_id", "GET /users/:_id", "PATCH /users/:_id"]],
 ];
 
 for (const [router, expected] of cases) {

@@ -1,7 +1,8 @@
 import Asset from "../src/models/asset.js";
 import UserStock from "../src/models/userStock.js";
 import UserMutualFund from "../src/models/userMutualFund.js";
-import { getNetWorth } from "../src/controllers/assets.controller.js";
+import UserHolding from "../src/models/userHolding.js";
+import { getAssets, getNetWorth } from "../src/controllers/assets.controller.js";
 import {
   createAssetSchema,
   getAssetsQuerySchema,
@@ -79,4 +80,44 @@ if (
   throw new Error(JSON.stringify(res.body));
 }
 
-console.log("Asset schema, validation, and net-worth checks passed.");
+const category = new Asset({
+  _id: "000000000000000000000101",
+  assetId: "01",
+  key: "stocks",
+  name: "Stocks",
+  status: "available",
+  displayOrder: 0,
+});
+Asset.find = (filter) => {
+  if (filter.isActive === true) {
+    return { sort: () => ({ lean: async () => [category.toJSON()] }) };
+  }
+  return { sort: async () => [category] };
+};
+UserHolding.aggregate = async () => [
+  {
+    _id: { categoryId: category._id, categoryKey: "stocks" },
+    holdingCount: 1,
+    investedAmount: 1000,
+    currentValue: 1250,
+    todayChange: 25,
+  },
+];
+UserStock.getUserPortfolioValue = async () => ({
+  totalStocks: 0,
+  totalInvestment: 0,
+  totalCurrentValue: 0,
+});
+res.statusCode = 0;
+res.body = null;
+await getAssets({ user: req.user, validated: { query: {} } }, res);
+if (
+  res.statusCode !== 200 ||
+  res.body.data[0].holdingAmount !== 1250 ||
+  res.body.data[0].currentValue !== 1250 ||
+  res.body.portfolio.netWorth !== 1250
+) {
+  throw new Error(JSON.stringify(res.body));
+}
+
+console.log("Asset schema, validation, holding-amount list, and net-worth checks passed.");

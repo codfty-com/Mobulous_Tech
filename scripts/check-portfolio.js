@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import Asset from "../src/models/asset.js";
 import UserHolding from "../src/models/userHolding.js";
+import UserStock from "../src/models/userStock.js";
 import { env } from "../src/config/env.js";
 import { authenticateRequest } from "../src/middlewares/jwt.js";
 import { deleteHolding, getCategoryPortfolio, getDashboard, updateHolding } from "../src/services/portfolio.service.js";
@@ -36,6 +37,11 @@ UserHolding.aggregate = async (pipeline) => {
   }
   return [{ _id: { categoryId: stockCategory, categoryKey: "stocks" }, holdingCount: 1, investedAmount: 0, currentValue: 50, todayChange: 2 }];
 };
+UserStock.getUserPortfolioValue = async () => ({
+  totalStocks: 0,
+  totalInvestment: 0,
+  totalCurrentValue: 0,
+});
 
 const firstDashboard = await getDashboard(userOne);
 assert.equal(firstDashboard.portfolio.holdingCount, 3);

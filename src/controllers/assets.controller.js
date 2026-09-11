@@ -3,6 +3,7 @@ import Asset from "../models/asset.js";
 import UserStock from "../models/userStock.js";
 import UserMutualFund from "../models/userMutualFund.js";
 import { sendError, sendSuccess } from "../utils/http.js";
+import { getDashboard } from "../services/portfolio.service.js";
 
 const bodyFor = (req) => req.validated?.body || req.body;
 const queryFor = (req) => req.validated?.query || req.query;
@@ -33,16 +34,49 @@ const assetError = (res, error, fallbackMessage) => {
 
 export const getAssets = async (req, res) => {
   try {
+    const userId = req.user?.userId;
+    if (!mongoose.isValidObjectId(userId)) {
+      return sendError(res, { statusCode: 400, message: "A valid authenticated user is required" });
+    }
+
     const { status, isActive } = queryFor(req);
     const filter = {};
     if (status) filter.status = status;
     if (isActive !== undefined) filter.isActive = isActive;
 
-    const data = await Asset.find(filter).sort({ displayOrder: 1, name: 1 });
+    const [categories, dashboard] = await Promise.all([
+      Asset.find(filter).sort({ displayOrder: 1, name: 1 }),
+      getDashboard(userId),
+    ]);
+    const valuesByCategoryId = new Map(
+      dashboard.assets.map((asset) => [asset.categoryId, asset]),
+    );
+    const data = categories.map((category) => {
+      const values = valuesByCategoryId.get(String(category._id));
+      const categoryData = category.toJSON();
+      const financialValues = values || {
+        holdingCount: 0,
+        investedAmount: 0,
+        currentValue: 0,
+        totalGain: 0,
+        todayChange: 0,
+        returnPercentage: 0,
+      };
+
+      return {
+        ...categoryData,
+        ...financialValues,
+        // Convenient mobile-list alias. This is calculated per authenticated
+        // user and is never stored on the asset-category master document.
+        holdingAmount: financialValues.currentValue,
+      };
+    });
+
     return sendSuccess(res, {
-      message: "Assets fetched successfully",
+      message: "Assets with holding amounts fetched successfully",
       data,
       count: data.length,
+      portfolio: dashboard.portfolio,
       ...(status ? { status } : {}),
     });
   } catch (error) {
