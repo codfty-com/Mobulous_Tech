@@ -19,8 +19,8 @@ import {
 
 const router = express.Router();
 
-router.get("/expenses/categories", getExpenseCategories);
 router.use("/expenses", authenticateRequest);
+router.get("/expenses/categories", getExpenseCategories);
 router.post("/expenses", validateRequest(addExpenseSchema), addExpense);
 router.get("/expenses", validateRequest(getExpensesQuerySchema), getExpenses);
 router.get(

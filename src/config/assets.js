@@ -1,5 +1,6 @@
 export const ASSET_CATEGORIES = [
   {
+    assetId: "01",
     key: "stocks",
     name: "Stocks",
     icon: "https://api.iconify.design/lucide:chart-candlestick.svg?color=%23156ff7",
@@ -7,9 +8,11 @@ export const ASSET_CATEGORIES = [
     status: "available",
     dataRoute: "/api/stocks",
     searchParam: "query",
-    examples: ["HDFC Bank", "Reliance", "Apple"],
+    displayOrder: 0,
+    examples: ["Apple", "Tesla", "TCS", "Reliance"]
   },
   {
+    assetId: "02",
     key: "mutual_funds",
     name: "Mutual Funds",
     icon: "https://api.iconify.design/lucide:chart-pie.svg?color=%2317a673",
@@ -17,19 +20,23 @@ export const ASSET_CATEGORIES = [
     status: "available",
     dataRoute: "/api/mutual-funds",
     searchParam: "query",
-    examples: ["Parag Parikh", "HDFC", "Axis"],
+    displayOrder: 1,
+    examples: ["Parag Parikh", "HDFC", "Axis"]
   },
   {
+    assetId: "03",
     key: "etf",
     name: "ETF",
     icon: "https://api.iconify.design/lucide:layers-3.svg?color=%237c3aed",
     description: "Exchange-traded funds.",
-    status: "coming_soon",
-    dataRoute: null,
-    searchParam: null,
-    examples: ["NIFTYBEES", "BANKBEES", "SPY"],
+    status: "disabled",
+    dataRoute: "/api/etfs",
+    searchParam: "query",
+    displayOrder: 2,
+    examples: ["NIFTYBEES", "BANKBEES", "SPY"]
   },
   {
+    assetId: "04",
     key: "fixed_deposit",
     name: "Fixed Deposit",
     icon: "https://api.iconify.design/lucide:landmark.svg?color=%23b7791f",
@@ -37,9 +44,11 @@ export const ASSET_CATEGORIES = [
     status: "coming_soon",
     dataRoute: null,
     searchParam: null,
-    examples: ["SBI FD", "HDFC FD", "ICICI FD"],
+    displayOrder: 3,
+    examples: ["HDFC Fixed Deposit", "SBI FD", "Bajaj Finance FD"]
   },
   {
+    assetId: "05",
     key: "metals",
     name: "Metals",
     icon: "https://api.iconify.design/lucide:gem.svg?color=%239ca3af",
@@ -47,9 +56,11 @@ export const ASSET_CATEGORIES = [
     status: "coming_soon",
     dataRoute: null,
     searchParam: null,
-    examples: ["Gold", "Silver", "Platinum"],
+    displayOrder: 4,
+    examples: ["Gold", "Silver", "Platinum"]
   },
   {
+    assetId: "06",
     key: "ulip",
     name: "ULIP",
     icon: "https://api.iconify.design/lucide:shield-check.svg?color=%23059669",
@@ -57,9 +68,11 @@ export const ASSET_CATEGORIES = [
     status: "coming_soon",
     dataRoute: null,
     searchParam: null,
-    examples: ["ULIP growth plan", "ULIP balanced plan"],
+    displayOrder: 5,
+    examples: ["ULIP growth plan", "ULIP balanced plan"]
   },
   {
+    assetId: "07",
     key: "cash",
     name: "Cash",
     icon: "https://api.iconify.design/lucide:wallet.svg?color=%232f855a",
@@ -67,9 +80,11 @@ export const ASSET_CATEGORIES = [
     status: "coming_soon",
     dataRoute: null,
     searchParam: null,
-    examples: ["Wallet cash", "Bank balance"],
+    displayOrder: 6,
+    examples: ["Wallet cash", "Bank balance"]
   },
   {
+    assetId: "08",
     key: "others",
     name: "Others",
     icon: "https://api.iconify.design/lucide:package.svg?color=%234b5563",
@@ -77,6 +92,7 @@ export const ASSET_CATEGORIES = [
     status: "coming_soon",
     dataRoute: null,
     searchParam: null,
-    examples: ["Real estate", "Crypto", "Bonds"],
-  },
+    displayOrder: 7,
+    examples: ["Real estate", "Crypto", "Bonds"]
+  }
 ];

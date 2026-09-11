@@ -50,7 +50,7 @@ export const env = {
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN?.trim() || "7d",
   skipJwtAuthForTesting: parseBoolean(
     process.env.SKIP_JWT_AUTH_FOR_TESTING,
-    nodeEnv !== "production",
+    false,
   ),
   emailUser: process.env.EMAIL_USER?.trim() || "",
   emailPass: process.env.EMAIL_PASS?.trim() || "",

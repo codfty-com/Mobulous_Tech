@@ -11,6 +11,7 @@ import {
 const valid = createAssetSchema.body({
   key: "real_estate",
   name: "Real Estate",
+  assetId: "09",
   status: "available",
   valuationSource: "none",
   examples: ["Home"],
@@ -20,7 +21,7 @@ if (!valid.success) throw new Error(JSON.stringify(valid));
 const invalid = createAssetSchema.body({ key: "Bad Key", name: "" });
 if (invalid.success) throw new Error("Invalid asset was accepted");
 
-const update = updateAssetSchema.body({ sortOrder: 2, isActive: false });
+const update = updateAssetSchema.body({ displayOrder: 2, isActive: false });
 if (!update.success) throw new Error(JSON.stringify(update));
 
 const query = getAssetsQuerySchema.query({ status: "AVAILABLE", isActive: "false" });
@@ -31,6 +32,9 @@ await document.validate();
 const json = document.toJSON();
 if (json.iconUrl !== json.icon || json.imageUrl !== json.icon) {
   throw new Error("Asset URL aliases are missing");
+}
+if (json.assetId !== "09") {
+  throw new Error("Asset list fields are missing");
 }
 
 UserStock.aggregate = async () => [

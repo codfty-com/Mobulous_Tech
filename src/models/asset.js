@@ -2,6 +2,14 @@ import mongoose from "mongoose";
 
 const assetSchema = new mongoose.Schema(
   {
+    // Stable frontend identifier. MongoDB's _id remains the API resource ID.
+    assetId: {
+      type: String,
+      trim: true,
+      maxlength: [50, "Asset ID cannot exceed 50 characters"],
+      unique: true,
+      sparse: true,
+    },
     key: {
       type: String,
       required: true,
@@ -62,10 +70,10 @@ const assetSchema = new mongoose.Schema(
       enum: ["stocks", "mutual_funds", "none"],
       default: "none",
     },
-    sortOrder: {
+    displayOrder: {
       type: Number,
       default: 0,
-      min: [0, "Sort order cannot be negative"],
+      min: [0, "Display order cannot be negative"],
     },
     isActive: {
       type: Boolean,
@@ -78,7 +86,7 @@ const assetSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-assetSchema.index({ isActive: 1, status: 1, sortOrder: 1 });
+assetSchema.index({ isActive: 1, status: 1, displayOrder: 1 });
 
 assetSchema.set("toJSON", {
   transform: (document, value) => {

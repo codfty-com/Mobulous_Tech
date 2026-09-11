@@ -24,10 +24,9 @@ import { authenticateRequest } from "../middlewares/jwt.js";
 
 const router = express.Router();
 
-// Public routes - No authentication required
+router.use(authenticateRequest);
 router.get("/markets", getAvailableMarkets);
-// Keep the public symbol-search URL while allowing authenticated portfolio
-// collection requests to continue to the stock router below.
+// Symbol search continues to the stock router when no search term is given.
 router.get("/stocks", (req, res, next) => {
   if (req.query.query || req.query.search) return searchStocks(req, res, next);
   return next();
@@ -50,8 +49,7 @@ router.get("/market-news/live", getLiveMarketNews);
 router.get("/market-news/related", getRelatedMarketNews);
 router.get("/market-news/symbol/:symbol", getMarketNewsBySymbol);
 
-// Protected routes - Authentication required
-router.post("/market-data/refresh", authenticateRequest, refreshMarketData);
+router.post("/market-data/refresh", refreshMarketData);
 
 export default router;
 
