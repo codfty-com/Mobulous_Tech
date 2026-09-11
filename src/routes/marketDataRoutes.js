@@ -24,7 +24,8 @@ import { authenticateRequest } from "../middlewares/jwt.js";
 
 const router = express.Router();
 
-router.use(authenticateRequest);
+// Read-only market information is public so the web dashboard can load before login.
+// Refreshing bypasses the cache and remains authenticated to protect the upstream provider.
 router.get("/markets", getAvailableMarkets);
 // Symbol search continues to the stock router when no search term is given.
 router.get("/stocks", (req, res, next) => {
@@ -49,7 +50,7 @@ router.get("/market-news/live", getLiveMarketNews);
 router.get("/market-news/related", getRelatedMarketNews);
 router.get("/market-news/symbol/:symbol", getMarketNewsBySymbol);
 
-router.post("/market-data/refresh", refreshMarketData);
+router.post("/market-data/refresh", authenticateRequest, refreshMarketData);
 
 export default router;
 

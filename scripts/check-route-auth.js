@@ -35,7 +35,6 @@ try {
     [authRoutes, "POST", "/auth/revoke-token"],
     [docsRoutes, "GET", "/api-list"],
     [expenseRoutes, "GET", "/expenses/categories"],
-    [marketDataRoutes, "GET", "/markets"],
     [mutualFundDataRoutes, "GET", "/mutual-funds"],
     [mutualFundHoldingRoutes, "GET", "/mutual-fund-holdings"],
     [portfolioRoutes, "GET", "/portfolio/dashboard"],

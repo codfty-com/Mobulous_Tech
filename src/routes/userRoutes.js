@@ -38,6 +38,7 @@ router.get("/admin/users/:_id", authenticateRequest, requireAdmin, getUserProfil
 router.delete("/admin/users/:_id", authenticateRequest, requireAdmin, deleteUserProfileById);
 
 // Protected routes - Authentication required
+router.get("/users/:_id", authenticateRequest, getUserProfileById);
 router.patch("/users/:_id", authenticateRequest, updateUserProfileById);
 
 export default router;

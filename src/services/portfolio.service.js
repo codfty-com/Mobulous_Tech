@@ -5,6 +5,7 @@ import Instrument from "../models/instrument.js";
 import InvestmentAccount from "../models/investmentAccount.js";
 import UserHolding from "../models/userHolding.js";
 import PortfolioSnapshot from "../models/portfolioSnapshot.js";
+import UserStock from "../models/userStock.js";
 
 const round = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
 const metricsFor = ({ holdingCount = 0, investedAmount = 0, currentValue = 0, todayChange = 0 }) => {
@@ -91,13 +92,23 @@ const holdingDataFor = async ({ userId, body, existing }) => {
 };
 
 export const getDashboard = async (userId) => {
-  const [categories, grouped] = await Promise.all([
+  const [categories, grouped, stockPortfolio] = await Promise.all([
     Asset.find({ isActive: true }).sort({ displayOrder: 1, name: 1 }).lean(),
     UserHolding.aggregate(totalsPipeline({ userId: objectId(userId) })),
+    UserStock.getUserPortfolioValue(userId),
   ]);
   const byCategoryId = new Map(grouped.map((entry) => [String(entry._id.categoryId), entry]));
   const assets = categories.map((category) => {
     const values = byCategoryId.get(String(category._id)) || {};
+    const holdingMetrics = metricsFor(values);
+    const metrics = category.key === "stocks"
+      ? metricsFor({
+          holdingCount: holdingMetrics.holdingCount + stockPortfolio.totalStocks,
+          investedAmount: holdingMetrics.investedAmount + stockPortfolio.totalInvestment,
+          currentValue: holdingMetrics.currentValue + stockPortfolio.totalCurrentValue,
+          todayChange: holdingMetrics.todayChange,
+        })
+      : holdingMetrics;
     return {
       assetId: category.assetId,
       categoryId: String(category._id),
@@ -107,7 +118,7 @@ export const getDashboard = async (userId) => {
       description: category.description,
       status: category.status,
       displayOrder: category.displayOrder,
-      ...metricsFor(values),
+      ...metrics,
     };
   });
   const portfolioMetrics = metricsFor(
