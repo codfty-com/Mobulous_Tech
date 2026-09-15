@@ -666,6 +666,10 @@ Query params:
 - Response sections: `marketIndices`, `trendingStocks`, `mostActive`, `topGainers`, `topLosers`, `nifty100`, `mutualFunds`, `etfs`, `ipo`, `marketNews`, `watchlist`
 - Example local URL: `http://localhost:4500/api/market-data/home?region=IN&count=20&topShareCount=99`
 
+## News APIs — `src/routes/newsRoutes.js`
+
+The news endpoints use a dedicated controller and service and remain public under `/api/market-news`.
+
 ## 31. Get Market News
 
 - Method: `GET`
@@ -684,6 +688,24 @@ Query params:
 
 - Purpose: Search Yahoo Finance market news by keyword.
 - Note: If the selected region returns no news, the service falls back to `US` news and marks it in response metadata.
+
+## 31A. Get Global Market News
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/market-news/global`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/market-news/global`
+- Payload: Not required
+- Query params: `count` (optional, default `10`, maximum `50`) and `forceRefresh` (optional, default `false`).
+- Purpose: Curated global financial-market news. The endpoint always uses the global feed key and its own cache entry.
+
+## 31B. Get India Trading Market News
+
+- Method: `GET`
+- Local URL: `http://localhost:4500/api/market-news/india`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/market-news/india`
+- Payload: Not required
+- Query params: `count` (optional, default `10`, maximum `50`) and `forceRefresh` (optional, default `false`).
+- Purpose: Curated India trading-market news for NIFTY and SENSEX. It requests Yahoo Finance with `region=IN`, `lang=en-IN`, and never falls back to US articles. If Yahoo has no India result, the API returns an error rather than returning unrelated US news.
 
 ## 32. Get Live Trading News
 
@@ -1288,6 +1310,8 @@ This index is the authoritative list of primary `/api` routes implemented in `sr
 | `GET` | `/api/market-data/home` | Public | None |
 | `GET` | `/api/market-data/:marketKey` | Public | None |
 | `GET` | `/api/market-news` | Public | None |
+| `GET` | `/api/market-news/global` | Public | None |
+| `GET` | `/api/market-news/india` | Public | None |
 | `GET` | `/api/market-news/live` | Public | None |
 | `GET` | `/api/market-news/related` | Public | None |
 | `GET` | `/api/market-news/symbol/:symbol` | Public | None |

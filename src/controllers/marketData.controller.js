@@ -4,7 +4,6 @@ import {
   getMarketMoverDetail,
   getTopGainerDetails,
   getMarketHomeData,
-  getMarketNewsData,
   getMarketOverview,
   getMarketSnapshots,
   getSingleMarketSnapshot,
@@ -304,79 +303,6 @@ export const getMarketHome = async (req, res) => {
     });
 
     return sendMarketResponse(res, "Market home data fetched successfully", result);
-  } catch (error) {
-    return handleControllerError(res, error);
-  }
-};
-
-export const getMarketNews = async (req, res) => {
-  try {
-    const result = await getMarketNewsData({
-      query: req.query.query || req.query.search,
-      region: req.query.region,
-      count: req.query.count,
-      lang: req.query.lang,
-      forceRefresh: parseForceRefresh(req.query.forceRefresh),
-    });
-
-    return sendMarketResponse(res, "Market news fetched successfully", result);
-  } catch (error) {
-    return handleControllerError(res, error);
-  }
-};
-
-export const getLiveMarketNews = async (req, res) => {
-  try {
-    const result = await getMarketNewsData({
-      query: req.query.query || req.query.search || "stock market today",
-      region: req.query.region,
-      count: req.query.count,
-      lang: req.query.lang,
-      forceRefresh: parseForceRefresh(req.query.forceRefresh),
-    });
-
-    return sendMarketResponse(res, "Live trading news fetched successfully", result);
-  } catch (error) {
-    return handleControllerError(res, error);
-  }
-};
-
-export const getMarketNewsBySymbol = async (req, res) => {
-  try {
-    const result = await getMarketNewsData({
-      symbol: req.params.symbol,
-      region: req.query.region,
-      count: req.query.count,
-      lang: req.query.lang,
-      forceRefresh: parseForceRefresh(req.query.forceRefresh),
-    });
-
-    return sendMarketResponse(
-      res,
-      "Market news by symbol fetched successfully",
-      result,
-    );
-  } catch (error) {
-    return handleControllerError(res, error);
-  }
-};
-
-export const getRelatedMarketNews = async (req, res) => {
-  try {
-    const result = await getMarketNewsData({
-      symbols: parseList(req.query.symbols || req.query.symbol || req.query.ticker),
-      query: req.query.query || req.query.search,
-      region: req.query.region,
-      count: req.query.count,
-      lang: req.query.lang,
-      forceRefresh: parseForceRefresh(req.query.forceRefresh),
-    });
-
-    return sendMarketResponse(
-      res,
-      "Related market news fetched successfully",
-      result,
-    );
   } catch (error) {
     return handleControllerError(res, error);
   }

@@ -7,6 +7,7 @@ import { env, getCorsOptions } from "./config/env.js";
 import userRoutes from "./routes/userRoutes.js";
 import resetPassRoutes from "./routes/resetPassRoutes.js";
 import marketDataRoutes from "./routes/marketDataRoutes.js";
+import newsRoutes from "./routes/newsRoutes.js";
 import mutualFundDataRoutes from "./routes/mutualFundDataRoutes.js";
 import assetsRoutes from "./routes/assetsRoutes.js";
 import docsRoutes from "./routes/docsRoutes.js";
@@ -15,7 +16,6 @@ import stockRoutes from "./routes/stockRoutes.js";
 import mutualFundHoldingRoutes from "./routes/mutualFundHoldingRoutes.js";
 import expenseRoutes from "./routes/expenseRoutes.js";
 import portfolioRoutes from "./routes/portfolioRoutes.js";
-
 const app = express();
 const apiRouter = express.Router();
 
@@ -89,6 +89,7 @@ app.use("/api", assetsRoutes);
 apiRouter.use(userRoutes);
 apiRouter.use(resetPassRoutes);
 apiRouter.use(marketDataRoutes);
+apiRouter.use(newsRoutes);
 apiRouter.use(mutualFundDataRoutes);
 apiRouter.use(authRoutes);
 apiRouter.use(stockRoutes);
