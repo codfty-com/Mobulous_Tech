@@ -668,102 +668,21 @@ Query params:
 
 ## News APIs — `src/routes/newsRoutes.js`
 
-The news endpoints use a dedicated controller and service and remain public under `/api/market-news`.
+Only two public news feeds are available. Both accept optional `count` (default `10`, maximum `50`) and `forceRefresh` (default `false`).
 
-## 31. Get Market News
+## 31. Get India Trading News (Default)
 
 - Method: `GET`
 - Local URL: `http://localhost:4500/api/market-news`
 - Deployed URL: `https://mobulous-tech.vercel.app/api/market-news`
-- Payload: Not required
-- Query params:
+- Purpose: India trading news from NIFTY 50 and SENSEX feeds. The service filters articles to India-market coverage and does not accept country, language, symbol, or keyword overrides.
 
-| Parameter | Required | Default | Example |
-|---|---:|---|---|
-| `query` or `search` | No | `stock market` | `banking stocks` |
-| `region` | No | `US` | `IN` |
-| `count` | No | `10`, max `50` | `20` |
-| `lang` | No | region language | `en-IN` |
-| `forceRefresh` | No | `false` | `true` |
-
-- Purpose: Search Yahoo Finance market news by keyword.
-- Note: If the selected region returns no news, the service falls back to `US` news and marks it in response metadata.
-
-## 31A. Get Global Market News
+## 32. Get Global Trading News
 
 - Method: `GET`
 - Local URL: `http://localhost:4500/api/market-news/global`
 - Deployed URL: `https://mobulous-tech.vercel.app/api/market-news/global`
-- Payload: Not required
-- Query params: `count` (optional, default `10`, maximum `50`) and `forceRefresh` (optional, default `false`).
-- Purpose: Curated global financial-market news. The endpoint always uses the global feed key and its own cache entry.
-
-## 31B. Get India Trading Market News
-
-- Method: `GET`
-- Local URL: `http://localhost:4500/api/market-news/india`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/market-news/india`
-- Payload: Not required
-- Query params: `count` (optional, default `10`, maximum `50`) and `forceRefresh` (optional, default `false`).
-- Purpose: Curated India trading-market news for NIFTY and SENSEX. It requests Yahoo Finance with `region=IN`, `lang=en-IN`, and never falls back to US articles. If Yahoo has no India result, the API returns an error rather than returning unrelated US news.
-
-## 32. Get Live Trading News
-
-- Method: `GET`
-- Local URL: `http://localhost:4500/api/market-news/live`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/market-news/live`
-- Payload: Not required
-- Query params:
-
-| Parameter | Required | Default | Example |
-|---|---:|---|---|
-| `query` or `search` | No | `stock market today` | `nifty today` |
-| `region` | No | `US` | `IN` |
-| `count` | No | `10`, max `50` | `20` |
-| `lang` | No | region language | `en-IN` |
-| `forceRefresh` | No | `false` | `true` |
-
-- Purpose: Latest trading/live market news feed.
-- Example local URL: `http://localhost:4500/api/market-news/live?region=IN&count=20`
-
-## 33. Get Related Market News By Symbols
-
-- Method: `GET`
-- Local URL: `http://localhost:4500/api/market-news/related`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/market-news/related`
-- Payload: Not required
-- Query params:
-
-| Parameter | Required | Default | Example |
-|---|---:|---|---|
-| `symbols` | No | none | `RELIANCE.NS,TCS.NS` |
-| `symbol` or `ticker` | No | none | `RELIANCE.NS` |
-| `query` or `search` | No | `stock market` if no symbols | `technology stocks` |
-| `region` | No | `US` | `IN` |
-| `count` | No | `10`, max `50` | `20` |
-| `lang` | No | region language | `en-IN` |
-| `forceRefresh` | No | `false` | `true` |
-
-- Purpose: Related news for one or more selected share symbols.
-- Example local URL: `http://localhost:4500/api/market-news/related?symbols=RELIANCE.NS,TCS.NS&count=20`
-
-## 34. Get Market News By Symbol
-
-- Method: `GET`
-- Local URL: `http://localhost:4500/api/market-news/symbol/:symbol`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/market-news/symbol/:symbol`
-- Example local URL: `http://localhost:4500/api/market-news/symbol/RELIANCE.NS?count=10`
-- Payload: Not required
-- Query params:
-
-| Parameter | Required | Default | Example |
-|---|---:|---|---|
-| `region` | No | `US` | `IN` |
-| `count` | No | `10`, max `50` | `10` |
-| `lang` | No | region language | `en-IN` |
-| `forceRefresh` | No | `false` | `true` |
-
-- Purpose: News for a single selected share symbol.
+- Purpose: Global trading news balanced across S&P 500, FTSE 100, Nikkei 225, and Hang Seng feeds.
 
 ## 35. Get Market Data By Key - NIFTY
 
@@ -1311,10 +1230,6 @@ This index is the authoritative list of primary `/api` routes implemented in `sr
 | `GET` | `/api/market-data/:marketKey` | Public | None |
 | `GET` | `/api/market-news` | Public | None |
 | `GET` | `/api/market-news/global` | Public | None |
-| `GET` | `/api/market-news/india` | Public | None |
-| `GET` | `/api/market-news/live` | Public | None |
-| `GET` | `/api/market-news/related` | Public | None |
-| `GET` | `/api/market-news/symbol/:symbol` | Public | None |
 | `POST` | `/api/market-data/refresh` | User | Optional `keys` array |
 | `GET` | `/api/mutual-funds` | Public | None |
 | `GET` | `/api/mutual-fund-data` | Public | None |

@@ -1,5 +1,4 @@
 import YahooFinance from "yahoo-finance2";
-import { MARKET_SYMBOLS } from "../config/marketSymbols.js";
 import MarketCollectionSnapshot from "../models/marketCollectionSnapshot.js";
 
 const yahooFinance = new YahooFinance({
@@ -25,27 +24,70 @@ const NEWS_CACHE_MINUTES = Number(
     2,
 );
 const NEWS_COLLECTION_TYPE = "market_news";
-const DEFAULT_REGION_LANGUAGE = {
-  US: "en-US",
-  IN: "en-IN",
-  GB: "en-GB",
-  AU: "en-AU",
-  CA: "en-CA",
-  SG: "en-SG",
-  DE: "de-DE",
-  FR: "fr-FR",
-  ES: "es-ES",
-  IT: "it-IT",
-  JP: "ja-JP",
-  HK: "zh-HK",
+const NEWS_LANGUAGE = "en-US";
+
+const INDIA_MARKET_TICKERS = new Set(["^NSEI", "^BSESN"]);
+const GLOBAL_MARKET_TICKERS = new Set([
+  "^GSPC",
+  "^DJI",
+  "^IXIC",
+  "^FTSE",
+  "^N225",
+  "^HSI",
+  "^STOXX",
+  "^SSEC",
+  "^KS11",
+]);
+
+const hasRelatedTicker = (article, tickers) =>
+  Array.isArray(article.relatedTickers) &&
+  article.relatedTickers.some((ticker) =>
+    tickers.has(String(ticker || "").trim().toUpperCase()),
+  );
+
+const isIndiaTradingArticle = (article) => {
+  const title = String(article.title || "").toLowerCase();
+  const hasIndianInstrument = Array.isArray(article.relatedTickers)
+    ? article.relatedTickers.some((ticker) =>
+        /\.(ns|bo)$/i.test(String(ticker || "").trim()),
+      )
+    : false;
+
+  return (
+    hasRelatedTicker(article, INDIA_MARKET_TICKERS) ||
+    hasIndianInstrument ||
+    /\b(india|indian|nifty|sensex|nse|bse)\b/.test(title)
+  );
 };
 
-export const DEFAULT_MARKET_NEWS_QUERY = "stock market";
-export const DEFAULT_MARKET_NEWS_REGION = "US";
-export const GLOBAL_MARKET_NEWS_QUERY = "global financial markets";
-export const GLOBAL_MARKET_NEWS_REGION = "US";
-export const INDIA_MARKET_NEWS_QUERY = "Indian stock market Nifty Sensex";
-export const INDIA_MARKET_NEWS_REGION = "IN";
+const NEWS_FEEDS = {
+  india: {
+    id: "india-trading-v1",
+    region: "IN",
+    // Yahoo currently exposes NIFTY/SENSEX news through this locale.
+    providerRegion: "US",
+    scope: "india-trading",
+    queries: ["^NSEI", "^BSESN"],
+    filter: isIndiaTradingArticle,
+    balanceSources: false,
+  },
+  global: {
+    id: "global-trading-v1",
+    region: "GLOBAL",
+    providerRegion: "US",
+    scope: "global-trading",
+    queries: ["^GSPC", "^FTSE", "^N225", "^HSI"],
+    filter: (article) => hasRelatedTicker(article, GLOBAL_MARKET_TICKERS),
+    balanceSources: true,
+  },
+};
+
+const normalizeCount = (value, fallback = 10) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+
+  return Math.min(Math.max(Math.trunc(parsed), 1), 50);
+};
 
 const toDate = (value) => {
   if (!value) return null;
@@ -57,92 +99,7 @@ const toDate = (value) => {
   return new Date(value);
 };
 
-const normalizeRegion = (value) =>
-  String(value || DEFAULT_MARKET_NEWS_REGION)
-    .trim()
-    .toUpperCase();
-
-const normalizeNewsCount = (value, fallback = 10) => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-
-  return Math.min(Math.max(Math.trunc(parsed), 1), 50);
-};
-
-const normalizeLang = (region, lang) =>
-  String(lang || DEFAULT_REGION_LANGUAGE[region] || "en-US").trim();
-
-const normalizeNewsQuery = (value) =>
-  String(value || DEFAULT_MARKET_NEWS_QUERY).trim();
-
-const getConfiguredSymbolLabel = (symbol) => {
-  const normalizedSymbol = String(symbol || "")
-    .trim()
-    .toUpperCase();
-  const market = Object.values(MARKET_SYMBOLS).find(
-    (item) => item.symbol.toUpperCase() === normalizedSymbol,
-  );
-
-  return market?.displayName || normalizedSymbol;
-};
-
-const buildCacheKey = ({ region, listId, count, lang }) =>
-  [NEWS_COLLECTION_TYPE, region, listId || "all", count, lang]
-    .map((value) => String(value || "").trim())
-    .join(":");
-
-const getFreshCache = async (cacheKey) =>
-  MarketCollectionSnapshot.findOne({
-    cacheKey,
-    cachedUntil: { $gt: new Date() },
-  }).lean();
-
-const getAnyCache = async (cacheKey) =>
-  MarketCollectionSnapshot.findOne({ cacheKey }).lean();
-
-const saveSnapshot = async ({
-  cacheKey,
-  listId,
-  region,
-  lang,
-  requestedCount,
-  meta,
-  data,
-  fetchedAt,
-}) =>
-  MarketCollectionSnapshot.findOneAndUpdate(
-    { cacheKey },
-    {
-      cacheKey,
-      collectionType: NEWS_COLLECTION_TYPE,
-      listId,
-      region,
-      lang,
-      requestedCount,
-      itemCount: data.length,
-      source: "yahoo-finance2",
-      meta,
-      data,
-      lastFetchedAt: fetchedAt,
-      cachedUntil: new Date(
-        fetchedAt.getTime() + NEWS_CACHE_MINUTES * 60 * 1000,
-      ),
-    },
-    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
-  );
-
-const buildResponse = (collection, source, warning) => ({
-  source,
-  region: collection.region,
-  lang: collection.lang,
-  requestedCount: collection.requestedCount,
-  count: Array.isArray(collection.data) ? collection.data.length : 0,
-  ...(warning ? { warning } : {}),
-  meta: collection.meta || {},
-  data: collection.data || [],
-});
-
-const normalizeNewsArticle = (article) => {
+const normalizeArticle = (article) => {
   const thumbnail =
     article.thumbnail?.resolutions?.find((item) => item.tag === "140x140") ||
     article.thumbnail?.resolutions?.[0] ||
@@ -162,92 +119,125 @@ const normalizeNewsArticle = (article) => {
   };
 };
 
-const fetchNewsFromYahooSearch = async ({ query, region, count, lang }) => {
-  const result = await yahooFinance.search(
-    query,
-    { quotesCount: 0, newsCount: count, region, lang },
-    { validateResult: false },
+const buildCacheKey = (feed, count) =>
+  [NEWS_COLLECTION_TYPE, feed.region, feed.id, count, NEWS_LANGUAGE].join(":");
+
+const getFreshCache = async (cacheKey) =>
+  MarketCollectionSnapshot.findOne({
+    cacheKey,
+    cachedUntil: { $gt: new Date() },
+  }).lean();
+
+const getAnyCache = async (cacheKey) =>
+  MarketCollectionSnapshot.findOne({ cacheKey }).lean();
+
+const buildResponse = (collection, source, warning) => ({
+  source,
+  region: collection.region,
+  lang: collection.lang,
+  requestedCount: collection.requestedCount,
+  count: Array.isArray(collection.data) ? collection.data.length : 0,
+  ...(warning ? { warning } : {}),
+  meta: collection.meta || {},
+  data: collection.data || [],
+});
+
+const saveSnapshot = async ({ cacheKey, feed, count, data, fetchedAt }) =>
+  MarketCollectionSnapshot.findOneAndUpdate(
+    { cacheKey },
+    {
+      cacheKey,
+      collectionType: NEWS_COLLECTION_TYPE,
+      listId: feed.id,
+      region: feed.region,
+      lang: NEWS_LANGUAGE,
+      requestedCount: count,
+      itemCount: data.length,
+      source: "yahoo-finance2",
+      meta: {
+        feed: feed.id,
+        scope: feed.scope,
+        providerRegion: feed.providerRegion,
+        queries: feed.queries,
+        fallbackUsed: false,
+      },
+      data,
+      lastFetchedAt: fetchedAt,
+      cachedUntil: new Date(
+        fetchedAt.getTime() + NEWS_CACHE_MINUTES * 60 * 1000,
+      ),
+    },
+    { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
 
-  return Array.isArray(result?.news) ? result.news : [];
+const fetchFeedArticles = async (feed, count) =>
+  Promise.all(
+    feed.queries.map(async (query) => {
+      const result = await yahooFinance.search(
+        query,
+        {
+          quotesCount: 0,
+          newsCount: count,
+          region: feed.providerRegion,
+          lang: NEWS_LANGUAGE,
+        },
+        { validateResult: false },
+      );
+
+      return (Array.isArray(result?.news) ? result.news : [])
+        .map(normalizeArticle)
+        .filter(feed.filter)
+        .sort(sortByPublishedAt);
+    }),
+  );
+
+const sortByPublishedAt = (left, right) => {
+  const leftTime = left.publishedAt ? left.publishedAt.getTime() : 0;
+  const rightTime = right.publishedAt ? right.publishedAt.getTime() : 0;
+
+  return rightTime - leftTime;
 };
 
-const fetchMarketNewsFromYahoo = async ({
-  query,
-  region,
-  count,
-  lang,
-  allowRegionFallback = true,
-}) => {
-  let effectiveRegion = region;
-  let effectiveLang = lang;
-  let articles = await fetchNewsFromYahooSearch({
-    query,
-    region: effectiveRegion,
-    count,
-    lang: effectiveLang,
-  });
-  let fallbackUsed = false;
+const addUniqueArticle = (articles, seen, article) => {
+  const key = article.uuid || article.link;
+  if (!key || seen.has(key)) return false;
 
-  if (
-    !articles.length &&
-    allowRegionFallback &&
-    effectiveRegion !== DEFAULT_MARKET_NEWS_REGION
-  ) {
-    effectiveRegion = DEFAULT_MARKET_NEWS_REGION;
-    effectiveLang = normalizeLang(effectiveRegion);
-    articles = await fetchNewsFromYahooSearch({
-      query,
-      region: effectiveRegion,
-      count,
-      lang: effectiveLang,
-    });
-    fallbackUsed = true;
-  }
-
-  if (!articles.length) {
-    throw new Error(`No market news returned for query "${query}"`);
-  }
-
-  return {
-    meta: { query, requestedRegion: region, effectiveRegion, fallbackUsed },
-    data: articles.map(normalizeNewsArticle),
-  };
+  seen.add(key);
+  articles.push(article);
+  return true;
 };
 
-export const getMarketNewsData = async ({
-  query,
-  symbol,
-  symbols = [],
-  region = DEFAULT_MARKET_NEWS_REGION,
-  count,
-  lang,
-  feed,
-  allowRegionFallback = true,
-  forceRefresh = false,
-} = {}) => {
-  const normalizedRegion = normalizeRegion(region || DEFAULT_MARKET_NEWS_REGION);
-  const normalizedCount = normalizeNewsCount(count);
-  const normalizedLang = normalizeLang(normalizedRegion, lang);
-  const requestedSymbols = [
-    ...(symbol ? [symbol] : []),
-    ...(Array.isArray(symbols) ? symbols : []),
-  ]
-    .flatMap((item) => String(item).split(","))
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const queries = requestedSymbols.length
-    ? requestedSymbols.map(getConfiguredSymbolLabel)
-    : [normalizeNewsQuery(query)];
-  const normalizedQuery = queries.join(",");
-  // Named feeds never share caches with the configurable generic endpoint.
-  const cacheListId = feed ? `${feed}:${normalizedQuery}` : normalizedQuery;
-  const cacheKey = buildCacheKey({
-    region: normalizedRegion,
-    listId: cacheListId,
-    count: normalizedCount,
-    lang: normalizedLang,
-  });
+const selectArticles = (articlesBySource, count, balanceSources) => {
+  const data = [];
+  const seen = new Set();
+
+  if (!balanceSources) {
+    articlesBySource
+      .flat()
+      .sort(sortByPublishedAt)
+      .some((article) => {
+        addUniqueArticle(data, seen, article);
+        return data.length === count;
+      });
+
+    return data;
+  }
+
+  while (data.length < count && articlesBySource.some((articles) => articles.length)) {
+    for (const articles of articlesBySource) {
+      while (articles.length && data.length < count) {
+        if (addUniqueArticle(data, seen, articles.shift())) break;
+      }
+    }
+  }
+
+  return data;
+};
+
+const getNewsFeedData = async ({ feedName, count, forceRefresh = false }) => {
+  const feed = NEWS_FEEDS[feedName];
+  const normalizedCount = normalizeCount(count);
+  const cacheKey = buildCacheKey(feed, normalizedCount);
 
   if (!forceRefresh) {
     const cached = await getFreshCache(cacheKey);
@@ -256,52 +246,21 @@ export const getMarketNewsData = async ({
 
   try {
     const fetchedAt = new Date();
-    const results = await Promise.all(
-      queries.map((newsQuery) =>
-        fetchMarketNewsFromYahoo({
-          query: newsQuery,
-          region: normalizedRegion,
-          count: normalizedCount,
-          lang: normalizedLang,
-          allowRegionFallback,
-        }),
-      ),
+    const articlesBySource = await fetchFeedArticles(feed, normalizedCount);
+    const data = selectArticles(
+      articlesBySource,
+      normalizedCount,
+      feed.balanceSources,
     );
-    const seen = new Set();
-    const data = results
-      .flatMap((result) => result.data)
-      .filter((article) => {
-        const key = article.uuid || article.link;
-        if (!key || seen.has(key)) return false;
 
-        seen.add(key);
-        return true;
-      })
-      .sort((a, b) => {
-        const left = a.publishedAt ? a.publishedAt.getTime() : 0;
-        const right = b.publishedAt ? b.publishedAt.getTime() : 0;
-        return right - left;
-      })
-      .slice(0, normalizedCount);
-    const fallbackUsed = results.some((result) => result.meta.fallbackUsed);
-    const effectiveRegions = Array.from(
-      new Set(results.map((result) => result.meta.effectiveRegion)),
-    );
+    if (!data.length) {
+      throw new Error("No matching market news was returned by the provider");
+    }
 
     const snapshot = await saveSnapshot({
       cacheKey,
-      listId: cacheListId,
-      region: normalizedRegion,
-      lang: normalizedLang,
-      requestedCount: normalizedCount,
-      meta: {
-        query: requestedSymbols.length ? null : queries[0],
-        ...(feed ? { feed } : {}),
-        symbols: requestedSymbols,
-        queries,
-        effectiveRegions,
-        fallbackUsed,
-      },
+      feed,
+      count: normalizedCount,
       data,
       fetchedAt,
     });
@@ -313,7 +272,7 @@ export const getMarketNewsData = async ({
       return buildResponse(
         fallbackCache,
         "stale-cache",
-        "Live provider request failed, returning last cached market news instead",
+        "Live provider request failed, returning last cached news instead",
       );
     }
 
@@ -321,3 +280,9 @@ export const getMarketNewsData = async ({
     throw error;
   }
 };
+
+export const getIndiaTradingNews = (options = {}) =>
+  getNewsFeedData({ feedName: "india", ...options });
+
+export const getGlobalTradingNews = (options = {}) =>
+  getNewsFeedData({ feedName: "global", ...options });

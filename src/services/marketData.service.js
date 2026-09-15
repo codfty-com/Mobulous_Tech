@@ -7,7 +7,7 @@ import {
 } from "../config/marketSymbols.js";
 import MarketCollectionSnapshot from "../models/marketCollectionSnapshot.js";
 import MarketSnapshot from "../models/marketSnapshot.js";
-import { getMarketNewsData } from "./news.service.js";
+import { getIndiaTradingNews } from "./news.service.js";
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey"],
@@ -1839,11 +1839,8 @@ export const getMarketHomeData = async ({
       }),
     ),
     settleHomeSection("marketNews", () =>
-      getMarketNewsData({
-        query: "stock market today",
-        region: normalizedRegion,
+      getIndiaTradingNews({
         count: normalizedCount,
-        lang: normalizedLang,
         forceRefresh,
       }),
     ),
