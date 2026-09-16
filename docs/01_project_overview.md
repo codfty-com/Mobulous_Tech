@@ -78,7 +78,7 @@ Mobulous_Tech/
 │   │   ├── userController.js        ← Signup + OTP verify
 │   │   ├── userLoginController.js   ← Email login + Google login
 │   │   ├── forgetPassController.js  ← Forgot/verify/reset password
-│   │   ├── marketData.controller.js ← Market data fetch/refresh
+│   │   ├── indices.controller.js ← Indices fetch
 │   │   └── allUserList.js           ← Admin: list all users
 │   ├── middlewares/
 │   │   ├── jwt.js              ← JWT Bearer token verification
@@ -89,17 +89,16 @@ Mobulous_Tech/
 │   ├── routes/
 │   │   ├── userRoutes.js       ← Auth endpoints
 │   │   ├── resetPassRoutes.js  ← Password reset endpoints
-│   │   └── marketDataRoutes.js ← Market data endpoints
+│   │   └── indicesRoutes.js ← Indices endpoint
 │   ├── services/
 │   │   ├── googleAuth.service.js   ← Google ID token verification
-│   │   └── marketData.service.js   ← Yahoo Finance fetch + cache logic
+│   │   └── indices.service.js      ← Index filtering and fetch orchestration
 │   ├── utils/
 │   │   ├── http.js         ← AppError class, sendSuccess, sendError helpers
 │   │   ├── otp.js          ← OTP generation & hashing utilities
 │   │   └── sendEmail.js    ← Nodemailer transporter + sendEmail()
 │   └── validators/
 │       ├── auth.validators.js    ← Signup, login, OTP, reset validators
-│       └── market.validators.js  ← Market query/params validators
 ├── server.js           ← Local dev entry point
 ├── vercel.json         ← Vercel routing + build config
 ├── package.json

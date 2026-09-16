@@ -194,16 +194,6 @@ The SMTP transporter is lazily created and cached (singleton). Requires `EMAIL_U
 
 ---
 
-### Market Validators — `src/validators/market.validators.js`
-
-| Export | Used For | Validates |
-|---|---|---|
-| `marketQuerySchema` | `GET /api/market-data` | `keys` (comma-list), `forceRefresh` (bool) |
-| `marketKeyParamsSchema` | `GET /api/market-data/:marketKey` | `marketKey` (required string) + query |
-| `refreshMarketSchema` | `POST /api/market-data/refresh` | body `keys` (optional comma-list) |
-
----
-
 ## Config Modules
 
 ### `src/config/env.js`

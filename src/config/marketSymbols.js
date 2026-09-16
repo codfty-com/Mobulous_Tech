@@ -43,6 +43,12 @@ export const MARKET_SYMBOLS = {
 
 export const DEFAULT_MARKET_KEYS = Object.keys(MARKET_SYMBOLS);
 
+// Keep the public indices endpoint configuration-driven. Adding an equity to
+// MARKET_SYMBOLS will never make it appear in the indices response.
+export const INDEX_MARKET_KEYS = Object.values(MARKET_SYMBOLS)
+  .filter((market) => market.type === "INDEX")
+  .map((market) => market.key);
+
 export const TOP_SHARE_MARKET_SYMBOLS = [
   "RELIANCE.NS",
   "TCS.NS",

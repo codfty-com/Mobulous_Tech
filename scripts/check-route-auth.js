@@ -4,7 +4,6 @@ import assetsRoutes from "../src/routes/assetsRoutes.js";
 import authRoutes from "../src/routes/authRoutes.js";
 import docsRoutes from "../src/routes/docsRoutes.js";
 import expenseRoutes from "../src/routes/expenseRoutes.js";
-import marketDataRoutes from "../src/routes/marketDataRoutes.js";
 import mutualFundDataRoutes from "../src/routes/mutualFundDataRoutes.js";
 import mutualFundHoldingRoutes from "../src/routes/mutualFundHoldingRoutes.js";
 import portfolioRoutes from "../src/routes/portfolioRoutes.js";
