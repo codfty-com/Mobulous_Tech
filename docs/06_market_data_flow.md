@@ -118,7 +118,7 @@ If the client sends an unknown market key (not in `MARKET_SYMBOLS`), it is liste
 
 Example:
 ```
-GET /api/market-data?keys=nifty,unknown123
+GET /api/indices?forceRefresh=true
 ```
 ```json
 {

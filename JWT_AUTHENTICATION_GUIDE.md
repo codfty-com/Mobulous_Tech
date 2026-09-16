@@ -299,9 +299,6 @@ curl -X GET http://localhost:4500/api/users/64abc123 \
 |---|---|---|
 | `GET /api/markets` | GET | ❌ No |
 | `GET /api/stocks` | GET | ❌ No |
-| `GET /api/market-data` | GET | ❌ No |
-| `GET /api/market-data/:key` | GET | ❌ No |
-| `POST /api/market-data/refresh` | POST | ✅ Yes |
 
 ### Mutual Funds
 

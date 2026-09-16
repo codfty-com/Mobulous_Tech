@@ -483,9 +483,6 @@ GET  /api/users/:id      - Get one user
 PATCH /api/users/:id     - Update user
 DELETE /api/users/:id    - Delete user
 
-GET  /api/market-data?keys=nifty,sensex
-GET  /api/market-data/:key
-POST /api/market-data/refresh
 ```
 
 **Could improve:**

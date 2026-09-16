@@ -6,7 +6,7 @@ import connectDB from "./config/db.js";
 import { env, getCorsOptions } from "./config/env.js";
 import userRoutes from "./routes/userRoutes.js";
 import resetPassRoutes from "./routes/resetPassRoutes.js";
-import marketDataRoutes from "./routes/marketDataRoutes.js";
+import indicesRoutes from "./routes/indicesRoutes.js";
 import newsRoutes from "./routes/newsRoutes.js";
 import mutualFundDataRoutes from "./routes/mutualFundDataRoutes.js";
 import assetsRoutes from "./routes/assetsRoutes.js";
@@ -88,7 +88,7 @@ app.use("/api", assetsRoutes);
 
 apiRouter.use(userRoutes);
 apiRouter.use(resetPassRoutes);
-apiRouter.use(marketDataRoutes);
+apiRouter.use(indicesRoutes);
 apiRouter.use(newsRoutes);
 apiRouter.use(mutualFundDataRoutes);
 apiRouter.use(authRoutes);

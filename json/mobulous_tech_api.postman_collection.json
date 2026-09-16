@@ -447,273 +447,6 @@
       ]
     },
     {
-      "name": "Market Data",
-      "item": [
-        {
-          "name": "Get Supported Markets",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/markets",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "markets"]
-            },
-            "description": "Returns the list of supported market keys: nifty, sensex, nasdaq, hdfcbank."
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const json = pm.response.json();",
-                  "pm.test('Has data array', () => pm.expect(json.data).to.be.an('array'));",
-                  "pm.test('Has nifty', () => {",
-                  "  const keys = json.data.map(m => m.key);",
-                  "  pm.expect(keys).to.include('nifty');",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ]
-        },
-        {
-          "name": "Get All Market Data (All Keys)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/market-data",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "market-data"]
-            },
-            "description": "Fetches market data for all supported markets. Returns from cache if available (within 2 min TTL), else fetches live from Yahoo Finance."
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const json = pm.response.json();",
-                  "pm.test('Success true', () => pm.expect(json.success).to.be.true);",
-                  "pm.test('Has source field', () => pm.expect(json).to.have.property('source'));",
-                  "pm.test('Source is valid', () => {",
-                  "  pm.expect(['cache','provider','stale-cache']).to.include(json.source);",
-                  "});",
-                  "pm.test('Has count', () => pm.expect(json.count).to.be.a('number'));"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ]
-        },
-        {
-          "name": "Get Market Data (Filtered Keys)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/market-data?keys=nifty,nasdaq",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "market-data"],
-              "query": [
-                { "key": "keys", "value": "nifty,nasdaq", "description": "Comma-separated market keys" },
-                { "key": "forceRefresh", "value": "false", "disabled": true, "description": "Set true to bypass cache" }
-              ]
-            },
-            "description": "Fetch data for specific markets only. Use `forceRefresh=true` to skip cache."
-          },
-          "response": []
-        },
-        {
-          "name": "Get Market Data — Force Refresh",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/market-data?keys=nifty,sensex&forceRefresh=true",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "market-data"],
-              "query": [
-                { "key": "keys", "value": "nifty,sensex" },
-                { "key": "forceRefresh", "value": "true" }
-              ]
-            },
-            "description": "Bypasses MongoDB cache and fetches live data from Yahoo Finance."
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const json = pm.response.json();",
-                  "pm.test('Source is provider or stale-cache', () => {",
-                  "  pm.expect(['provider','stale-cache']).to.include(json.source);",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ]
-        },
-        {
-          "name": "Get Market Data — Invalid Key",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/market-data?keys=nifty,unknownkey",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "market-data"],
-              "query": [
-                { "key": "keys", "value": "nifty,unknownkey" }
-              ]
-            },
-            "description": "Tests the invalidKeys field. Unknown keys are listed in response.invalidKeys; valid keys still returned."
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "const json = pm.response.json();",
-                  "pm.test('Has invalidKeys array', () => pm.expect(json.invalidKeys).to.be.an('array'));",
-                  "pm.test('unknownkey in invalidKeys', () => pm.expect(json.invalidKeys).to.include('unknownkey'));"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ]
-        },
-        {
-          "name": "Get Market Data by Key — NIFTY",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/market-data/nifty",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "market-data", "nifty"]
-            },
-            "description": "Get data for a single market. Try: nifty, sensex, nasdaq, hdfcbank"
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const json = pm.response.json();",
-                  "pm.test('Data is object', () => pm.expect(json.data).to.be.an('object'));",
-                  "pm.test('Key is nifty', () => pm.expect(json.data.key).to.equal('nifty'));",
-                  "pm.test('Has price', () => pm.expect(json.data).to.have.property('price'));"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ]
-        },
-        {
-          "name": "Get Market Data by Key — SENSEX",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/market-data/sensex",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "market-data", "sensex"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Market Data by Key — NASDAQ",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/market-data/nasdaq",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "market-data", "nasdaq"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Get Market Data by Key — Not Found",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/market-data/fakemarket",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "market-data", "fakemarket"]
-            },
-            "description": "Tests the 404 response for unknown market keys."
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 400 or 404', () => {",
-                  "  pm.expect([400, 404]).to.include(pm.response.code);",
-                  "});",
-                  "pm.test('Success false', () => pm.expect(pm.response.json().success).to.be.false);"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ]
-        },
-        {
-          "name": "Refresh Market Data",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"keys\": [\"nifty\", \"sensex\", \"nasdaq\", \"hdfcbank\"]\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/market-data/refresh",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "market-data", "refresh"]
-            },
-            "description": "Force-refreshes market data from Yahoo Finance and updates the MongoDB cache. Omit `keys` to refresh all markets."
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
-                  "const json = pm.response.json();",
-                  "pm.test('Source is provider or stale-cache', () => {",
-                  "  pm.expect(['provider','stale-cache']).to.include(json.source);",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
       "name": "Edge Cases",
       "item": [
         {
@@ -841,6 +574,25 @@
               }
             }
           ]
+        }
+      ]
+    },
+    {
+      "name": "Indices",
+      "item": [
+        {
+          "name": "Get Indices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/indices",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "indices"]
+            },
+            "description": "Fetches the configured market indices. Add ?forceRefresh=true to bypass the cache."
+          },
+          "response": []
         }
       ]
     }

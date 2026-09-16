@@ -1432,7 +1432,7 @@ export const getTopGainerDetails = async ({
     error.details = {
       ids: requestedIds,
       supportedIdValues:
-        "Use rank numbers 1-10 or symbols from /api/market-data/movers?list=day_gainers&count=10",
+        "Use rank numbers 1-10 or symbols from the current top-gainers list",
     };
     throw error;
   }
@@ -1528,7 +1528,7 @@ export const getMarketMoverDetail = async ({
       id: normalizedId,
       listId: movers.list?.id || listId,
       supportedIdValues:
-        "Use rank number or symbol from /api/market-data/movers",
+        "Use a rank number or symbol from the current market-movers list",
     };
     throw error;
   }

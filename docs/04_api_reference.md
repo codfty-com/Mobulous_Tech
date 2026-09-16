@@ -297,148 +297,20 @@ Get asset categories for frontend screens.
 
 ---
 
-## Market Data Routes � `src/routes/marketDataRoutes.js`
+## Indices Route — `src/routes/indicesRoutes.js`
 
-### `GET /api/markets`
-Get the list of all supported market keys and their metadata.
-
-**Success `200`:**
-```json
-{
-  "success": true,
-  "message": "Supported markets fetched successfully",
-  "data": [
-    { "key": "nifty", "symbol": "^NSEI", "displayName": "NIFTY 50", "type": "INDEX", "exchange": "NSE", "country": "India" },
-    { "key": "sensex", "symbol": "^BSESN", "displayName": "SENSEX", "type": "INDEX", "exchange": "BSE", "country": "India" },
-    { "key": "nasdaq", "symbol": "^IXIC", "displayName": "NASDAQ Composite", "type": "INDEX", "exchange": "NASDAQ", "country": "United States" },
-    { "key": "hdfcbank", "symbol": "HDFCBANK.NS", "displayName": "HDFC Bank", "type": "EQUITY", "exchange": "NSE", "country": "India" }
-  ]
-}
-```
-
----
-
-### `GET /api/stocks`
-Search stocks by name or symbol. Use this for dropdowns/search screens.
+### `GET /api/indices`
+Fetches the configured market indices (NIFTY 50, SENSEX, BANK NIFTY, and NASDAQ). Equities are excluded.
 
 **Query Parameters:**
 
 | Param | Type | Default | Description |
 |---|---|---|---|
-| `query` or `search` | `string` | required | Stock name or symbol text, e.g. `hdfc bank`, `reliance`, `apple` |
-| `region` | `string` | `US` | Yahoo region code, e.g. `IN`, `US` |
-| `count` or `limit` | `number` | `10` | Maximum stock rows returned, capped at `25` |
-| `lang` | `string` | region language | Optional locale, e.g. `en-IN`, `en-US` |
-| `forceRefresh` | `boolean` | `false` | Skip cache and fetch from provider |
-
-**Example:** `GET /api/stocks?query=hdfc%20bank&region=IN&limit=10&lang=en-IN`
-
-**Success `200`:**
-```json
-{
-  "success": true,
-  "message": "Stocks fetched successfully",
-  "source": "provider",
-  "region": "IN",
-  "lang": "en-IN",
-  "query": "hdfc bank",
-  "total": 1,
-  "count": 1,
-  "limit": 10,
-  "data": [
-    {
-      "rank": 1,
-      "symbol": "HDFCBANK.NS",
-      "displayName": "HDFC Bank Limited",
-      "shortName": "HDFC BANK LTD",
-      "longName": "HDFC Bank Limited",
-      "type": "EQUITY",
-      "exchange": "NSI",
-      "exchangeCode": "NSI",
-      "currency": "INR",
-      "region": "IN",
-      "source": "yahoo-finance2"
-    }
-  ]
-}
-```
-
----
-
-### `GET /api/market-data`
-Get market data for one or more market keys (cached or live).
-
-**Query Parameters:**
-
-| Param | Type | Default | Description |
-|---|---|---|---|
-| `keys` | `string` | all markets | Comma-separated market keys e.g. `nifty,sensex` |
 | `forceRefresh` | `boolean` | `false` | Skip cache and fetch live data |
 
-**Example:** `GET /api/market-data?keys=nifty,nasdaq&forceRefresh=true`
-
-**Success `200`:**
-```json
-{
-  "success": true,
-  "message": "Market data fetched successfully",
-  "source": "cache",
-  "invalidKeys": [],
-  "count": 2,
-  "data": [
-    {
-      "key": "nifty",
-      "symbol": "^NSEI",
-      "displayName": "NIFTY 50",
-      "price": 22341.5,
-      "change": -120.3,
-      "changePercent": -0.54,
-      "marketState": "CLOSED",
-      "cachedUntil": "2026-04-24T01:02:00.000Z"
-    }
-  ]
-}
-```
-
-**Source values:**
-- `"cache"` — served from MongoDB (still valid)
-- `"provider"` — freshly fetched from Yahoo Finance
-- `"stale-cache"` — Yahoo Finance failed; old data returned with a `warning` field
+**Example:** `GET /api/indices?forceRefresh=true`
 
 ---
-
-### `GET /api/market-data/:marketKey`
-Get data for a single market by key.
-
-**Example:** `GET /api/market-data/nifty`
-
-**Success `200`** — same shape as above but `data` is an object (not array).  
-**`404`** — Key not found.
-
----
-
-### `POST /api/market-data/refresh`
-Force-refresh market data for specified keys, bypassing cache.
-
-**Request Body:**
-```json
-{ "keys": ["nifty", "sensex"] }
-```
-Or via query string: `POST /api/market-data/refresh?keys=nifty,sensex`
-
-**Success `200`:**
-```json
-{
-  "success": true,
-  "message": "Market data refreshed successfully",
-  "source": "provider",
-  "count": 2,
-  "data": [ ... ]
-}
-```
-
----
-
 ## Mutual Fund Data Routes - `src/routes/mutualFundDataRoutes.js`
 
 These routes use the free MFapi.in provider. No API key is required. Results are cached in MongoDB like market data.
