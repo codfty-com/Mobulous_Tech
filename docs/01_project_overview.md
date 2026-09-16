@@ -79,7 +79,7 @@ Mobulous_Tech/
 │   │   ├── userLoginController.js   ← Email login + Google login
 │   │   ├── forgetPassController.js  ← Forgot/verify/reset password
 │   │   ├── indices.controller.js ← Indices fetch
-│   │   └── allUserList.js           ← Admin: list all users
+│   │   └── adminUsers.controller.js ← Admin: user tracking and deletion
 │   ├── middlewares/
 │   │   ├── jwt.js              ← JWT Bearer token verification
 │   │   └── validateRequest.js  ← Schema-driven request validation

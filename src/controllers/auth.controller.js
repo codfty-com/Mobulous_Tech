@@ -5,7 +5,6 @@ import {
   refreshAccessToken,
   revokeRefreshToken,
   revokeAllUserTokens,
-  cleanupExpiredTokens,
   verifyRefreshToken,
 } from "../services/jwt.service.js";
 
@@ -191,30 +190,6 @@ export const logoutAll = async (req, res) => {
     return sendError(res, {
       statusCode: 500,
       message: "Failed to logout from all devices",
-    });
-  }
-};
-
-/**
- * Clean up expired tokens (admin/maintenance endpoint)
- * POST /api/auth/cleanup-tokens
- */
-export const cleanupTokens = async (req, res) => {
-  try {
-    const deletedCount = await cleanupExpiredTokens();
-
-    return sendSuccess(res, {
-      message: `Cleanup completed. ${deletedCount} expired token(s) removed.`,
-      data: {
-        deletedCount,
-      },
-    });
-  } catch (error) {
-    console.error("Cleanup tokens error:", error);
-
-    return sendError(res, {
-      statusCode: 500,
-      message: "Failed to cleanup expired tokens",
     });
   }
 };

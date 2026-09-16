@@ -45,6 +45,15 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
     // Set only by trusted server-side administration workflows. This field is
     // intentionally never accepted from public signup or profile updates.
     admin: {

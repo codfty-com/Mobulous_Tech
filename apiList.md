@@ -60,35 +60,12 @@ Example item:
 }
 ```
 
-### Asset administration and net worth
+### Asset details and net worth
 
 | Method | Production URL | Auth | Payload / query |
 |---|---|---|---|
-| `GET` | `https://mobulous-tech.vercel.app/api/assets/:id` | Public | No payload; `id` is the asset MongoDB `_id` |
-| `POST` | `https://mobulous-tech.vercel.app/api/assets` | Admin | Asset JSON shown below |
-| `PATCH` or `PUT` | `https://mobulous-tech.vercel.app/api/assets/:id` | Admin | Any non-empty subset of the asset JSON fields |
-| `DELETE` | `https://mobulous-tech.vercel.app/api/assets/:id` | Admin | No payload |
+| `GET` | `https://mobulous-tech.vercel.app/api/assets/:id` | Required | No payload; `id` is the asset MongoDB `_id` |
 | `GET` | `https://mobulous-tech.vercel.app/api/assets/net-worth` | Required | No payload; optional `userId` query is admin-only for another user |
-
-Create-asset payload (`key` and `name` required):
-
-```json
-{
-  "key": "etf",
-  "name": "ETF",
-  "icon": "https://example.com/etf.svg",
-  "description": "Exchange-traded funds",
-  "status": "coming_soon",
-  "dataRoute": null,
-  "searchParam": null,
-  "examples": ["NIFTYBEES"],
-  "valuationSource": "none",
-  "sortOrder": 3,
-  "isActive": true
-}
-```
-
-Allowed `status`: `available`, `coming_soon`, `disabled`. Allowed `valuationSource`: `stocks`, `mutual_funds`, `none`.
 
 ## 3. Create User / Signup
 
@@ -171,7 +148,6 @@ Allowed `status`: `available`, `coming_soon`, `disabled`. Allowed `valuationSour
 | `POST` | `https://mobulous-tech.vercel.app/api/auth/logout-all` | Required | No payload |
 | `GET` | `https://mobulous-tech.vercel.app/api/auth/me` | Required | No payload |
 | `POST` | `https://mobulous-tech.vercel.app/api/auth/change-password` | Required | `{ "oldPassword": "OldPass123", "newPassword": "NewPass456" }` |
-| `POST` | `https://mobulous-tech.vercel.app/api/auth/cleanup-tokens` | Admin | No payload |
 
 Access tokens are sent as `Authorization: Bearer <accessToken>`. The refresh and revoke endpoints accept refresh tokens only in the JSON body.
 
@@ -182,47 +158,9 @@ Access tokens are sent as `Authorization: Bearer <accessToken>`. The refresh and
 - Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users`
 - Payload: Not required
 - Auth: Admin access required.
-- Purpose: Returns all users with `password`, `otp`, and `otpExpiry` excluded.
+- Purpose: Returns all users, including soft-deleted users, with `password`, `otp`, and `otpExpiry` excluded. Each user includes `isDeleted` and `deletedAt`.
 
-## 7A. Admin Search Users By Name Or Email
-
-- Method: `GET`
-- Local URL: `http://localhost:4500/api/admin/users/search`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users/search`
-- Payload: Not required
-- Auth: Admin access required.
-- Purpose: Searches users by name and/or email with `password`, `otp`, and `otpExpiry` excluded.
-- Example local URLs:
-  - `http://localhost:4500/api/admin/users/search?query=john`
-  - `http://localhost:4500/api/admin/users/search?name=john`
-  - `http://localhost:4500/api/admin/users/search?email=john@example.com`
-
-Query params:
-
-| Parameter | Required | Default | Example |
-|---|---:|---|---|
-| `query` or `search` | No | none | `john` |
-| `name` | No | none | `john` |
-| `email` | No | none | `john@example.com` |
-| `page` | No | `1` | `1` |
-| `limit` | No | `20`, max `100` | `10` |
-
-## 8. Get User By Query ID
-
-- Method: `GET`
-- Local URL: `http://localhost:4500/api/admin/users?_id=64abc123abc123abc123abcd`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users?_id=64abc123abc123abc123abcd`
-- Payload: Not required
-- Auth: Admin access required.
-- Query params:
-
-| Parameter | Required | Example |
-|---|---:|---|
-| `_id` or `id` | Yes | `64abc123abc123abc123abcd` |
-
-- Purpose: `GET /api/admin/users` switches to single-user lookup when `_id` or `id` is present.
-
-## 9. Get User By Path ID
+## 8. Get User By Path ID
 
 - Method: `GET`
 - Local URL: `http://localhost:4500/api/admin/users/:_id`
@@ -231,7 +169,7 @@ Query params:
 - Payload: Not required
 - Auth: Admin access required.
 
-## 10. Update User Profile By ID
+## 9. Update User Profile By ID
 
 - Method: `PATCH`
 - Local URL: `http://localhost:4500/api/users/:_id`
@@ -252,7 +190,7 @@ Query params:
 - Allowed fields: `name`, `phone`, `profilePicture`
 - Note: Send `null` or `""` for `phone` or `profilePicture` to remove them.
 
-## 11. Delete User By ID (Admin)
+## 10. Soft Delete User By ID (Admin)
 
 - Method: `DELETE`
 - Local URL: `http://localhost:4500/api/admin/users/:_id`
@@ -260,6 +198,18 @@ Query params:
 - Example local URL: `http://localhost:4500/api/admin/users/64abc123abc123abc123abcd`
 - Payload: Not required
 - Auth: Admin access required.
+
+- Purpose: Marks the user as deleted while retaining the record and its `deletedAt` timestamp.
+
+## 11. Permanently Delete User By ID (Admin)
+
+- Method: `DELETE`
+- Local URL: `http://localhost:4500/api/admin/users/:_id/permanent`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users/:_id/permanent`
+- Example local URL: `http://localhost:4500/api/admin/users/64abc123abc123abc123abcd/permanent`
+- Payload: Not required
+- Auth: Admin access required.
+- Purpose: Permanently removes the user record. This action cannot be undone.
 
 ## 12. Forgot Password / Send OTP
 
@@ -420,32 +370,6 @@ Only two public news feeds are available. Both accept optional `count` (default 
 |---|---:|---|---|
 | `limit` | No | `30` | `30` or `all` |
 | `forceRefresh` | No | `false` | `true` |
-
-## 46. Refresh Mutual Fund Data
-
-- Method: `POST`
-- Local URL: `http://localhost:4500/api/mutual-fund-data/refresh`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/mutual-fund-data/refresh`
-- Headers: `Content-Type: application/json`, `Authorization: Bearer <accessToken>`
-- Auth: Required.
-- Payload option 1:
-
-```json
-{
-  "schemeCodes": [122639, 120465]
-}
-```
-
-- Payload option 2:
-
-```json
-{
-  "schemeCode": 122639
-}
-```
-
-- Alternative query URL: `http://localhost:4500/api/mutual-fund-data/refresh?schemeCodes=122639,120465`
-- Note: If scheme code input is omitted, default scheme codes are refreshed.
 
 ## Common Error Shape
 
@@ -808,19 +732,17 @@ This index is the authoritative list of primary `/api` routes implemented in `sr
 |---|---|---|---|
 | `GET` | `/` | Public | None |
 | `GET` | `/api/api-list` | Public | None |
-| `GET` | `/api/assets` | Public | None |
+| `GET` | `/api/assets` | User | None |
 | `GET` | `/api/assets/net-worth` | User | None |
-| `POST` | `/api/assets` | Admin | Asset object |
-| `GET` | `/api/assets/:id` | Public | None |
-| `PATCH`, `PUT` | `/api/assets/:id` | Admin | Partial asset object |
-| `DELETE` | `/api/assets/:id` | Admin | None |
+| `GET` | `/api/assets/:id` | User | None |
 | `POST` | `/api/create-user` | Public | `name`, `email`, `password`; optional `phone` |
 | `POST` | `/api/verify-email-otp` | Public | `email`, `otp` |
 | `POST` | `/api/login-user` | Public | `email`, `password` |
 | `POST` | `/api/login-google` | Public | `idToken` |
 | `GET` | `/api/admin/users` | Admin | None |
-| `GET` | `/api/admin/users/search` | Admin | None |
-| `GET`, `DELETE` | `/api/admin/users/:_id` | Admin | None |
+| `GET` | `/api/admin/users/:_id` | Admin | None |
+| `DELETE` | `/api/admin/users/:_id` | Admin | Soft delete |
+| `DELETE` | `/api/admin/users/:_id/permanent` | Admin | Permanent delete |
 | `PATCH` | `/api/users/:_id` | User/owner or admin | Partial profile object |
 | `POST` | `/api/forgot-password` | Public | `email` |
 | `POST` | `/api/verify-otp` | Public | `email`, `otp` |
@@ -831,7 +753,6 @@ This index is the authoritative list of primary `/api` routes implemented in `sr
 | `POST` | `/api/auth/logout-all` | User | None |
 | `GET` | `/api/auth/me` | User | None |
 | `POST` | `/api/auth/change-password` | User | `oldPassword`, `newPassword` |
-| `POST` | `/api/auth/cleanup-tokens` | Admin | None |
 | `GET` | `/api/indices` | Public | Optional `forceRefresh` |
 | `GET` | `/api/market-news` | Public | None |
 | `GET` | `/api/market-news/global` | Public | None |
@@ -839,7 +760,6 @@ This index is the authoritative list of primary `/api` routes implemented in `sr
 | `GET` | `/api/mutual-fund-data` | Public | None |
 | `GET` | `/api/mutual-fund-data/:schemeCode/history` | Public | None |
 | `GET` | `/api/mutual-fund-data/:schemeCode` | Public | None |
-| `POST` | `/api/mutual-fund-data/refresh` | User | Optional `schemeCodes` array or `schemeCode` |
 | `POST`, `GET` | `/api/stocks` | User | Add body for `POST`; none for portfolio `GET` |
 | `GET` | `/api/stocks/summary` | User | None |
 | `GET` | `/api/stocks/holdings` | User | None |

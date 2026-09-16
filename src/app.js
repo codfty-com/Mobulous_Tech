@@ -16,6 +16,7 @@ import stockRoutes from "./routes/stockRoutes.js";
 import mutualFundHoldingRoutes from "./routes/mutualFundHoldingRoutes.js";
 import expenseRoutes from "./routes/expenseRoutes.js";
 import portfolioRoutes from "./routes/portfolioRoutes.js";
+import adminRoutes from "./routes/admin/adminRoutes.js";
 const app = express();
 const apiRouter = express.Router();
 
@@ -96,6 +97,7 @@ apiRouter.use(stockRoutes);
 apiRouter.use(mutualFundHoldingRoutes);
 apiRouter.use(expenseRoutes);
 apiRouter.use(portfolioRoutes);
+apiRouter.use("/admin", adminRoutes);
 
 app.use("/api", apiRouter);
 

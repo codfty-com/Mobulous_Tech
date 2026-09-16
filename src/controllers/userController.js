@@ -79,6 +79,13 @@ export const createUser = async (req, res) => {
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
+      if (existingUser.isDeleted) {
+        return res.status(409).json({
+          success: false,
+          message: "This account has been deleted. Please contact support.",
+        });
+      }
+
       if (
         existingUser.authMethods?.includes(GOOGLE_METHOD) &&
         !existingUser.authMethods?.includes(EMAIL_PASSWORD_METHOD)

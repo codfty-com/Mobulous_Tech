@@ -6,21 +6,18 @@ This document lists all identified production-level issues found during the code
 
 ## 🔴 Critical
 
-### 1. `GET /api/users` is Publicly Exposed
+### 1. User Tracking Route Is Admin-Protected
 
-**File:** `src/routes/userRoutes.js`, `src/controllers/allUserList.js`
+**File:** `src/routes/admin/adminUsersRoutes.js`, `src/controllers/adminUsers.controller.js`
 
-The endpoint that returns all registered users has **no authentication** and **no authorization**.
+The user-tracking routes are protected by both `authenticateRequest` and `requireAdmin`.
 
 ```js
-// Currently:
-router.get("/api/users", getAllusers);
-
-// Fix:
-router.get("/api/users", authenticateRequest, isAdmin, getAllusers);
+router.use(authenticateRequest, requireAdmin);
+router.get("/", getAllUsers);
 ```
 
-**Recommendation:** Apply `authenticateRequest` middleware and add an admin role check. If there is no admin role system yet, restrict this endpoint to internal use only or remove it entirely from production.
+**Status:** Resolved. The endpoints are available only under `/api/admin/users`.
 
 ---
 
@@ -321,7 +318,7 @@ Vercel recommends using `rewrites` instead of `routes` for routing in v2:
 
 | # | Issue | Severity | File(s) |
 |---|---|---|---|
-| 1 | `/api/users` unprotected | 🔴 Critical | `userRoutes.js`, `allUserList.js` |
+| 1 | Admin user tracking protected | Resolved | `adminUsersRoutes.js`, `adminUsers.controller.js` |
 | 2 | `reset-password` no OTP re-check | 🔴 Critical | `forgetPassController.js` |
 | 3 | JWT not returned on login | 🔴 Critical | `userLoginController.js` |
 | 4 | `Math.random()` for OTP | 🔴 Critical | `forgetPassController.js` |

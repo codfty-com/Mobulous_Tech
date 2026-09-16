@@ -365,16 +365,6 @@ Get historical NAV data for a scheme.
 
 ---
 
-### `POST /api/mutual-fund-data/refresh`
-Force-refresh latest NAV data for specified scheme codes.
-
-**Request Body:**
-```json
-{ "schemeCodes": [122639, 120465] }
-```
-
----
-
 ## Health Check
 
 ### `GET /`

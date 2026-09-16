@@ -49,6 +49,13 @@ export const loginUser = async (req, res) => {
       });
     }
 
+    if (user.isDeleted) {
+      return res.status(403).json({
+        success: false,
+        message: "This account has been deleted",
+      });
+    }
+
     const authMethods = getAuthMethods(user);
 
     if (!authMethods.includes(EMAIL_PASSWORD_METHOD) || !user.password) {
@@ -133,6 +140,13 @@ export const loginWithGoogle = async (req, res) => {
       });
       isNewUser = true;
     } else {
+      if (user.isDeleted) {
+        return res.status(403).json({
+          success: false,
+          message: "This account has been deleted",
+        });
+      }
+
       if (user.googleId && user.googleId !== googleProfile.googleId) {
         return res.status(409).json({
           success: false,
