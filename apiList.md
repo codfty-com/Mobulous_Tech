@@ -67,6 +67,40 @@ Example item:
 | `GET` | `https://mobulous-tech.vercel.app/api/assets/:id` | Required | No payload; `id` is the asset MongoDB `_id` |
 | `GET` | `https://mobulous-tech.vercel.app/api/assets/net-worth` | Required | No payload; optional `userId` query is admin-only for another user |
 
+## Indian Top 99 Stock Market Data
+
+This public API is restricted to the configured 99 NSE (`.NS`) shares. It does not accept a country, exchange, count, or symbol-list parameter, so it cannot return non-Indian market data.
+
+| Period | Method | Local URL | Chart coverage |
+|---|---|---|---|
+| Daily | `GET` | `http://localhost:4500/api/indian-market/top-99-stocks/daily` | One trading day; 5-minute candles |
+| Weekly | `GET` | `http://localhost:4500/api/indian-market/top-99-stocks/weekly` | Five trading days; daily candles |
+| Monthly | `GET` | `http://localhost:4500/api/indian-market/top-99-stocks/monthly` | One month; daily candles |
+
+- Auth: Not required.
+- Payload: Not required.
+- Optional query: `forceRefresh=true` bypasses the short-lived cache.
+- Valid `:period` values: `daily`, `weekly`, `monthly`.
+
+Each response has `country: "India"`, `exchange: "NSE"`, `count: 99`, and a `data` array. Each item contains `rank`, `symbol`, display name, currency, exchange, latest price, previous close, and an OHLCV `points` array (`time`, `open`, `high`, `low`, `close`, `volume`, `adjustedClose`). Individual provider failures are returned as an item with `status: "error"` and are also listed in `meta.failedSymbols`.
+
+## Indian Top Gainers and Top Losers
+
+These public endpoints return exactly 25 NSE (`.NS`) shares. Yahoo Finance's predefined movers screen can return non-Indian symbols, so these endpoints instead rank live Yahoo quotes from the configured Indian NSE universe. The response has `country: "India"`, `exchange: "NSE"`, and `meta.universe: "configured-nse-99"`.
+
+| Purpose | Method | Local URL |
+|---|---|---|
+| List top 25 gainers | `GET` | `http://localhost:4500/api/indian-market/top-gainers` |
+| Gainer details after a click | `GET` | `http://localhost:4500/api/indian-market/top-gainers/:symbol` |
+| List top 25 losers | `GET` | `http://localhost:4500/api/indian-market/top-losers` |
+| Loser details after a click | `GET` | `http://localhost:4500/api/indian-market/top-losers/:symbol` |
+
+- Auth: Not required.
+- Optional query: `forceRefresh=true` skips the two-minute market-data cache.
+- For a detail URL, pass the exact `symbol` returned by its matching list, for example: `GET /api/indian-market/top-gainers/HDFCBANK.NS`.
+- Detail routes reject non-NSE symbols and return `404` when the stock is no longer in that current top-25 list.
+- Each list item includes rank, symbol, company name, INR price, day change/change percentage, OHLC, volume, market time, and 52-week high/low. Detail responses add bid/ask, average volume, market cap, shares outstanding, book value, P/E, EPS, dividend, and beta when Yahoo provides them.
+
 ## 3. Create User / Signup
 
 - Method: `POST`
@@ -754,6 +788,7 @@ This index is the authoritative list of primary `/api` routes implemented in `sr
 | `GET` | `/api/auth/me` | User | None |
 | `POST` | `/api/auth/change-password` | User | `oldPassword`, `newPassword` |
 | `GET` | `/api/indices` | Public | Optional `forceRefresh` |
+| `GET` | `/api/indian-market/top-99-stocks/:period` | Public | `:period` is `daily`, `weekly`, or `monthly`; optional `forceRefresh=true` |
 | `GET` | `/api/market-news` | Public | None |
 | `GET` | `/api/market-news/global` | Public | None |
 | `GET` | `/api/mutual-funds` | Public | None |

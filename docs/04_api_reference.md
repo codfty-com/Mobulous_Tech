@@ -311,6 +311,25 @@ Fetches the configured market indices (NIFTY 50, SENSEX, BANK NIFTY, and NASDAQ)
 **Example:** `GET /api/indices?forceRefresh=true`
 
 ---
+
+## Indian Stock Market Route — `src/routes/indianStockMarketRoutes.js`
+
+### `GET /api/indian-market/top-99-stocks/:period`
+
+Returns price and chart data for the configured 99 NSE (`.NS`) stocks only. This endpoint is public and cannot be used to request another country, exchange, or symbol list.
+
+| Path parameter | Allowed values | Coverage |
+|---|---|---|
+| `period` | `daily` | One trading day; 5-minute candles |
+| `period` | `weekly` | Five trading days; daily candles |
+| `period` | `monthly` | One month; daily candles |
+
+Optional query: `forceRefresh=true` bypasses the short-lived cache.
+
+**Example:** `GET /api/indian-market/top-99-stocks/daily`
+
+---
+
 ## Mutual Fund Data Routes - `src/routes/mutualFundDataRoutes.js`
 
 These routes use the free MFapi.in provider. No API key is required. Results are cached in MongoDB like market data.
