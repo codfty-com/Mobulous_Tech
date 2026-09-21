@@ -7,8 +7,7 @@ import { once } from "node:events";
 import User from "../src/models/user.js";
 import RefreshToken from "../src/models/refreshToken.js";
 import { env, getCorsOptions } from "../src/config/env.js";
-import adminRoutes from "../src/routes/admin/adminRoutes.js";
-import resetPassRoutes from "../src/routes/resetPassRoutes.js";
+import apiRouter from "../src/routes/apiRoutes.js";
 import { authenticateRequest } from "../src/middlewares/jwt.js";
 import { refreshAccessToken, verifyAccessToken } from "../src/services/jwt.service.js";
 
@@ -90,8 +89,7 @@ RefreshToken.findOne = async ({ token }) => {
 const app = express();
 app.use(cors(getCorsOptions()));
 app.use(express.json());
-app.use("/api/admin", adminRoutes);
-app.use("/api", resetPassRoutes);
+app.use("/api", apiRouter);
 app.get("/session", authenticateRequest, (req, res) => res.json(req.user));
 const server = app.listen(0, "127.0.0.1");
 await once(server, "listening");
@@ -112,6 +110,11 @@ const forgot = () => post("admin/forgot-password", { email });
 const reset = (otp, value = newPassword) => post("admin/reset-password", { email, otp, newPassword: value });
 
 try {
+  // These routes must remain public through the full production router stack.
+  assert.equal((await post("auth/refresh-token", {})).status, 400);
+  for (const path of ["/mutual-funds", "/mutual-fund-data", "/mutual-fund-data/123/history"]) {
+    assert.equal((await fetch(`${base}/api${path}`)).status, 401, "Mutual fund routes remain protected");
+  }
   const preflight = await fetch(`${base}/api/admin/users`, {
     method: "OPTIONS",
     headers: { Origin: frontendOrigin, "Access-Control-Request-Method": "GET", "Access-Control-Request-Headers": "authorization,content-type" },
@@ -141,6 +144,9 @@ try {
   const firstTokens = login.body.data;
   assert.equal(firstTokens.user.password, undefined);
   assert.equal(verifyAccessToken(firstTokens.accessToken).admin, true);
+  const httpRefresh = await post("auth/refresh-token", { refreshToken: firstTokens.refreshToken });
+  assert.equal(httpRefresh.status, 200, "Refresh does not require an unexpired access token");
+  assert.ok(httpRefresh.body.data.accessToken);
   assert.equal(await session(firstTokens.accessToken), 200);
   for (const prefix of ["Bearer ", "bearer ", "BEARER ", "Bearer   "]) {
     const listed = await users(`${prefix}${firstTokens.accessToken}`);

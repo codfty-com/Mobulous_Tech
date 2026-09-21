@@ -50,6 +50,8 @@ Use `Authorization: Bearer <accessToken>` for protected endpoints, including `/a
 
 ## Admin frontend integration and 401 troubleshooting
 
+The mutual-fund router must scope authentication to `/mutual-funds` and `/mutual-fund-data`. A bare `router.use(authenticateRequest)` in that router also intercepts admin login and token refresh mounted afterward, returning 401 before their public handlers run. Redeploy the backend after applying this fix. `npm run test:admin-auth` now exercises the shared production API router to cover this regression.
+
 Log in against the same backend that serves the users endpoint, then send the returned `data.accessToken` on every protected request. The API does not set an authentication cookie; `credentials: "include"` alone does not authenticate a request. Opening the users URL directly in the address bar also does not send a Bearer token.
 
 ```js
