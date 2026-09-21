@@ -31,9 +31,11 @@ export const authenticateRequest = async (req, res, next) => {
   }
 
   const authorization = req.get("authorization") || "";
-  const [scheme, token] = authorization.split(" ");
+  // HTTP authentication schemes are case-insensitive. Accept multiple spaces,
+  // but require exactly one token so extra credentials are never ignored.
+  const token = /^Bearer +([^\s,]+)$/i.exec(authorization.trim())?.[1];
 
-  if (scheme !== "Bearer" || !token) {
+  if (!token) {
     return sendError(res, {
       statusCode: 401,
       message: "Authorization header must be: Bearer <access_token>",

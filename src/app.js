@@ -4,22 +4,10 @@ import helmet from "helmet";
 import morgan from "morgan";
 import connectDB from "./config/db.js";
 import { env, getCorsOptions } from "./config/env.js";
-import userRoutes from "./routes/userRoutes.js";
-import resetPassRoutes from "./routes/resetPassRoutes.js";
-import indicesRoutes from "./routes/indicesRoutes.js";
-import newsRoutes from "./routes/newsRoutes.js";
-import mutualFundDataRoutes from "./routes/mutualFundDataRoutes.js";
+import apiRouter from "./routes/apiRoutes.js";
 import assetsRoutes from "./routes/assetsRoutes.js";
 import docsRoutes from "./routes/docsRoutes.js";
-import authRoutes from "./routes/authRoutes.js";
-import stockRoutes from "./routes/stockRoutes.js";
-import mutualFundHoldingRoutes from "./routes/mutualFundHoldingRoutes.js";
-import expenseRoutes from "./routes/expenseRoutes.js";
-import portfolioRoutes from "./routes/portfolioRoutes.js";
-import adminRoutes from "./routes/admin/adminRoutes.js";
-import indianStockMarketRoutes from "./routes/indianStockMarketRoutes.js";
 const app = express();
-const apiRouter = express.Router();
 
 const trimTrailingPathWhitespace = (url) => {
   const queryStart = url.indexOf("?");
@@ -87,19 +75,6 @@ app.use(async (req, res, next) => {
 
 app.use(assetsRoutes);
 app.use("/api", assetsRoutes);
-
-apiRouter.use(userRoutes);
-apiRouter.use(resetPassRoutes);
-apiRouter.use(indicesRoutes);
-apiRouter.use(indianStockMarketRoutes);
-apiRouter.use(newsRoutes);
-apiRouter.use(mutualFundDataRoutes);
-apiRouter.use(authRoutes);
-apiRouter.use(stockRoutes);
-apiRouter.use(mutualFundHoldingRoutes);
-apiRouter.use(expenseRoutes);
-apiRouter.use(portfolioRoutes);
-apiRouter.use("/admin", adminRoutes);
 
 app.use("/api", apiRouter);
 
