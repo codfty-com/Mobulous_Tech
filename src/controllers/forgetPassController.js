@@ -12,7 +12,7 @@ const OTP_EXPIRY_MINUTES = env.otpExpiryMinutes;
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.validated?.body || req.body;
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email, admin: { $ne: true } });
 
     if (!user) {
       return sendError(res, { statusCode: 400, message: "User not found" });
@@ -51,7 +51,7 @@ export const forgotPassword = async (req, res) => {
 export const verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.validated?.body || req.body;
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email, admin: { $ne: true } });
 
     if (!user) {
       return sendError(res, { statusCode: 400, message: "User not found" });
@@ -78,7 +78,7 @@ export const verifyOtp = async (req, res) => {
 export const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.validated?.body || req.body;
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email, admin: { $ne: true } });
 
     if (!user) {
       return sendError(res, { statusCode: 400, message: "User not found" });

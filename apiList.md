@@ -6,7 +6,22 @@ Deployed base URL: `https://mobulous-tech.vercel.app`
 
 Use the `/api` URLs below for every application integration. Only the API-list and asset routers currently also expose root aliases; those aliases are compatibility routes and should not be used by new clients.
 
-Protected endpoints require `Authorization: Bearer <accessToken>`. Admin endpoints require the same header with a token whose `admin` claim is `true`. JSON endpoints use `Content-Type: application/json`.
+Protected endpoints require `Authorization: Bearer <accessToken>`. Protected admin endpoints require a current MongoDB-backed admin session. The admin login and password-reset endpoints below are public. JSON endpoints use `Content-Type: application/json`.
+
+## Admin login and password recovery
+
+Admin credentials are stored in the MongoDB `users` collection with `admin: true` and a bcrypt password hash. No hardcoded admin password is accepted. See [admin authentication setup and behavior](docs/10_admin_auth.md).
+
+| Method | Path | JSON body |
+| --- | --- | --- |
+| POST | `/api/admin/login` | `{"email":"assetheaven.admin@yopmail.com","password":"<admin password>"}` |
+| POST | `/api/admin/forgot-password` | `{"email":"assetheaven.admin@yopmail.com"}` |
+| POST | `/api/admin/verify-otp` | `{"email":"assetheaven.admin@yopmail.com","otp":"123456"}` |
+| POST | `/api/admin/reset-password` | `{"email":"assetheaven.admin@yopmail.com","otp":"123456","newPassword":"<new password>"}` |
+
+Login returns `data.user`, `data.accessToken`, `data.refreshToken`, `data.expiresIn`, and `data.tokenType`. Use the access token for `/api/admin/users` and other protected APIs. Refresh through the existing `/api/auth/refresh-token` endpoint.
+
+The OTP verification step is optional; reset always requires the OTP again. Codes expire after `OTP_EXPIRY_MINUTES` (default 5), allow at most 5 verification/reset attempts combined, and can only reset the password once. Email requests have a 60-second cooldown. Successful reset invalidates previous admin access and refresh tokens.
 
 ## 1. Get API List Markdown
 

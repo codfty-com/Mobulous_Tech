@@ -12,6 +12,7 @@ import stockRoutes from "../src/routes/stockRoutes.js";
 import portfolioRoutes from "../src/routes/portfolioRoutes.js";
 import userRoutes from "../src/routes/userRoutes.js";
 import adminUsersRoutes from "../src/routes/admin/adminUsersRoutes.js";
+import adminRoutes from "../src/routes/admin/adminRoutes.js";
 
 const routeSignatures = (router) =>
   router.stack
@@ -23,6 +24,7 @@ const routeSignatures = (router) =>
     );
 
 const cases = [
+  [adminRoutes, ["POST /login", "POST /forgot-password", "POST /verify-otp", "POST /reset-password"]],
   [assetsRoutes, ["GET /assets", "GET /assets/net-worth", "GET /assets/:id"]],
   [authRoutes, ["POST /auth/refresh-token", "POST /auth/revoke-token", "POST /auth/logout", "POST /auth/logout-all", "GET /auth/me", "POST /auth/change-password"]],
   [expenseRoutes, ["GET /expenses/categories", "POST /expenses", "GET /expenses", "GET /expenses/summary", "GET /expenses/:id", "PATCH /expenses/:id", "PUT /expenses/:id", "DELETE /expenses/:id"]],

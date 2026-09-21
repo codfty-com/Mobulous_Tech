@@ -233,7 +233,9 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select(
+      "+adminResetHash +adminResetExpiry +adminResetAttempts",
+    );
 
     if (!user) {
       return sendError(res, {
@@ -266,6 +268,12 @@ export const changePassword = async (req, res) => {
     user.otp = null;
     user.otpExpiry = null;
     user.lastLoginMethod = EMAIL_PASSWORD_METHOD;
+    if (user.admin) {
+      user.adminTokenVersion = (user.adminTokenVersion ?? 0) + 1;
+      user.adminResetHash = undefined;
+      user.adminResetExpiry = undefined;
+      user.adminResetAttempts = undefined;
+    }
 
     await user.save();
 
