@@ -56,7 +56,7 @@ Example item:
   "status": "available",
   "dataRoute": "/api/stocks",
   "searchParam": "query",
-  "examples": ["HDFC Bank", "Reliance", "Apple"]
+    "examples": ["HDFC Bank", "Reliance", "TCS"]
 }
 ```
 
@@ -303,12 +303,14 @@ Access tokens are sent as `Authorization: Bearer <accessToken>`. The refresh and
 | Parameter | Required | Default | Example |
 |---|---:|---|---|
 | `query` or `search` | Yes | none | `hdfc bank` |
-| `region` | No | `US` | `IN` |
+| `region` | No | `IN` (the only accepted value) | `IN` |
 | `count` or `limit` | No | `10`, max `25` | `10` |
 | `lang` | No | region language | `en-IN` |
 | `forceRefresh` | No | `false` | `true` |
 
-- Purpose: Searches Yahoo Finance stock symbols by company/share name and returns only equity results.
+- Auth: Not required.
+- Purpose: Searches only Indian cash equities listed on NSE (`.NS`) or BSE (`.BO`). Funds, indices, ETFs, crypto, ADRs, and overseas shares are excluded. Every result includes `country: "India"`, `exchange`, `currency`, and `isIndianStock: true` so it can be used to prefill the add-transaction form.
+- `region` must be `IN`; any other value returns `400`.
 - Example local URL: `http://localhost:4500/api/stocks?query=hdfc%20bank&region=IN&limit=10&lang=en-IN`
 - Example deployed URL: `https://mobulous-tech.vercel.app/api/stocks?query=reliance&region=IN&limit=10&lang=en-IN`
 
@@ -464,6 +466,7 @@ No endpoint is currently configured for these areas:
 ```
 
 - Required fields: `symbol`, `name`, `quantity`, and either `price` or `purchasePrice`.
+- Only Indian equities can be saved: the symbol must end in `.NS` (NSE) or `.BO` (BSE). The API derives the matching `exchange` and saves the currency as `INR`; a conflicting exchange or non-INR currency is rejected.
 - `quantity` must be greater than zero. The transaction type controls whether it adds to or subtracts from the holding.
 - `price` is accepted as a frontend-friendly alias for `purchasePrice`; for a sell row it is the sale price. If `currentPrice` is omitted, `price` is also used as `currentPrice`.
 - Calculated response fields include `transactionValue`, `signedQuantity`, and the legacy `totalInvestment`/`totalValue` aliases.
@@ -795,7 +798,8 @@ This index is the authoritative list of primary `/api` routes implemented in `sr
 | `GET` | `/api/mutual-fund-data` | Public | None |
 | `GET` | `/api/mutual-fund-data/:schemeCode/history` | Public | None |
 | `GET` | `/api/mutual-fund-data/:schemeCode` | Public | None |
-| `POST`, `GET` | `/api/stocks` | User | Add body for `POST`; none for portfolio `GET` |
+| `GET` | `/api/stocks?query=...` | Public | Indian NSE/BSE equity search; `region=IN`, `limit=1..25` |
+| `POST`, `GET` | `/api/stocks` | User | Add Indian-stock transaction for `POST`; omit `query` for portfolio `GET` |
 | `GET` | `/api/stocks/summary` | User | None |
 | `GET` | `/api/stocks/holdings` | User | None |
 | `GET` | `/api/stocks/net-worth` | User | Optional `period`; owner is always the JWT user |

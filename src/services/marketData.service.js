@@ -45,7 +45,9 @@ export const MARKET_COLLECTION_TYPES = {
   trending: "trending_symbols",
   movers: "market_movers",
   topShares: "top_share_markets",
-  stockSearch: "stock_search",
+  // The versioned cache key prevents an old, region-only search cache from
+  // serving non-Indian instruments after the Indian-equity restriction.
+  stockSearch: "indian_stock_search_v2",
 };
 export const DEFAULT_STOCK_SEARCH_COUNT = 10;
 export const MAX_STOCK_SEARCH_COUNT = 25;
@@ -655,6 +657,7 @@ const buildStockSearchResponse = ({ collection, source, query, warning }) => ({
 
 const normalizeStockSearchItem = ({ quote, detailQuote, rank, region }) => {
   const symbol = detailQuote?.symbol || quote.symbol || null;
+  const indianExchange = getIndianStockExchangeFromSymbol(symbol);
   const shortName =
     detailQuote?.shortName || quote.shortName || quote.shortname || null;
   const longName =
@@ -697,7 +700,12 @@ const normalizeStockSearchItem = ({ quote, detailQuote, rank, region }) => {
 
   return {
     ...latest,
+    // Expose a stable exchange name for the add-to-portfolio form. The raw
+    // provider exchange code remains available for diagnostics.
+    exchange: indianExchange,
     exchangeCode,
+    country: "India",
+    isIndianStock: true,
     score: toNumberOrNull(quote.score),
     details: normalizeMoverDetailQuote(detailQuote),
     source: "yahoo-finance2",
@@ -708,6 +716,22 @@ const isStockQuote = (quote) =>
   String(quote?.quoteType || "")
     .trim()
     .toUpperCase() === "EQUITY";
+
+// Yahoo's `region=IN` is a presentation hint, not an exchange filter. It can
+// still return overseas equities, ADRs, funds, and indices. Yahoo identifies
+// Indian cash-equity listings with the NSE/BSE suffixes below, so require both
+// the equity type and a recognised Indian listing symbol.
+export const getIndianStockExchangeFromSymbol = (symbol) => {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+
+  if (normalizedSymbol.endsWith(".NS")) return "NSE";
+  if (normalizedSymbol.endsWith(".BO")) return "BSE";
+
+  return null;
+};
+
+const isIndianStockQuote = (quote) =>
+  isStockQuote(quote) && Boolean(getIndianStockExchangeFromSymbol(quote?.symbol));
 
 const normalizeSearchText = (value) =>
   String(value || "")
@@ -752,7 +776,7 @@ const fetchStockSearchFromYahoo = async ({ query, region, count, lang }) => {
     { validateResult: false },
   );
   const quotes = Array.isArray(result?.quotes) ? result.quotes : [];
-  const providerSearchQuotes = quotes.filter(isStockQuote);
+  const providerSearchQuotes = quotes.filter(isIndianStockQuote);
   const existingSymbols = new Set(
     providerSearchQuotes.map((quote) => quote.symbol).filter(Boolean),
   );
@@ -1097,6 +1121,13 @@ export const searchStockSymbols = async ({
 } = {}) => {
   const cleanQuery = normalizeRequiredSearchQuery(query);
   const normalizedRegion = normalizeRegion(region);
+  if (normalizedRegion !== "IN") {
+    const error = new Error(
+      "Only Indian NSE (.NS) and BSE (.BO) equity searches are supported",
+    );
+    error.statusCode = 400;
+    throw error;
+  }
   const normalizedCount = normalizeStockSearchCount(count);
   const normalizedLang = normalizeLang(normalizedRegion, lang);
   const cacheKey = buildCollectionCacheKey({

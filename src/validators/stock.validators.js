@@ -46,6 +46,15 @@ const buildResult = (errors, data) =>
 const normalizeTransactionType = (value) =>
   typeof value === "string" ? value.trim().toLowerCase() : value;
 
+const getIndianStockExchange = (symbol) => {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+
+  if (normalizedSymbol.endsWith(".NS")) return "NSE";
+  if (normalizedSymbol.endsWith(".BO")) return "BSE";
+
+  return null;
+};
+
 const NET_WORTH_PERIOD_ALIASES = {
   all: "all",
   week: "weekly",
@@ -104,6 +113,7 @@ export const addStockSchema = {
     const exchange = normalizeString(body.exchange)?.toUpperCase();
     const sector = normalizeString(body.sector);
     const currency = normalizeString(body.currency)?.toUpperCase();
+    const indianExchange = getIndianStockExchange(symbol);
     const purchaseDate = normalizeDate(body.purchaseDate ?? body.transactionDate);
     const transactionDate = normalizeDate(body.transactionDate ?? body.purchaseDate);
     const transactionType = normalizeTransactionType(body.transactionType ?? "buy");
@@ -137,6 +147,20 @@ export const addStockSchema = {
       errors.push("Stock symbol is required");
     } else if (symbol.length < 1 || symbol.length > 20) {
       errors.push("Stock symbol must be between 1-20 characters");
+    } else if (!indianExchange) {
+      errors.push(
+        "Stock symbol must be an Indian NSE (.NS) or BSE (.BO) equity symbol",
+      );
+    }
+
+    if (exchange && indianExchange && exchange !== indianExchange) {
+      errors.push(
+        `Exchange must be ${indianExchange} for the selected stock symbol`,
+      );
+    }
+
+    if (currency && currency !== "INR") {
+      errors.push("Indian stocks must use INR currency");
     }
 
     if (!name) {
@@ -227,9 +251,9 @@ export const addStockSchema = {
     if (icon) data.icon = icon;
     if (purchasePrice !== undefined) data.purchasePrice = purchasePrice;
     if (currentPrice !== undefined) data.currentPrice = currentPrice;
-    if (exchange) data.exchange = exchange;
+    if (indianExchange) data.exchange = indianExchange;
     if (sector) data.sector = sector;
-    if (currency) data.currency = currency;
+    data.currency = "INR";
     if (purchaseDate) data.purchaseDate = purchaseDate;
     if (transactionDate) data.transactionDate = transactionDate;
     data.transactionType = transactionType;
@@ -256,12 +280,18 @@ export const updateStockSchema = {
     // All fields are optional for update
     if (body.symbol !== undefined) {
       const symbol = normalizeString(body.symbol)?.toUpperCase();
+      const indianExchange = getIndianStockExchange(symbol);
       if (!symbol) {
         errors.push("Stock symbol cannot be empty");
       } else if (symbol.length < 1 || symbol.length > 20) {
         errors.push("Stock symbol must be between 1-20 characters");
+      } else if (!indianExchange) {
+        errors.push(
+          "Stock symbol must be an Indian NSE (.NS) or BSE (.BO) equity symbol",
+        );
       } else {
         data.symbol = symbol;
+        data.exchange = indianExchange;
       }
     }
 
@@ -320,7 +350,15 @@ export const updateStockSchema = {
 
     if (body.exchange !== undefined) {
       const exchange = normalizeString(body.exchange)?.toUpperCase();
-      if (exchange) data.exchange = exchange;
+      if (!exchange) {
+        errors.push("Exchange cannot be empty");
+      } else if (!["NSE", "BSE"].includes(exchange)) {
+        errors.push("Exchange must be NSE or BSE for Indian stocks");
+      } else if (data.symbol && exchange !== data.exchange) {
+        errors.push(`Exchange must be ${data.exchange} for the selected stock symbol`);
+      } else {
+        data.exchange = exchange;
+      }
     }
 
     if (body.sector !== undefined) {
@@ -330,7 +368,11 @@ export const updateStockSchema = {
 
     if (body.currency !== undefined) {
       const currency = normalizeString(body.currency)?.toUpperCase();
-      if (currency) data.currency = currency;
+      if (currency !== "INR") {
+        errors.push("Indian stocks must use INR currency");
+      } else {
+        data.currency = currency;
+      }
     }
 
     if (body.purchaseDate !== undefined) {

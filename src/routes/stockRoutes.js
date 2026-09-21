@@ -1,6 +1,7 @@
 import express from "express";
 import { authenticateRequest } from "../middlewares/jwt.js";
 import { validateRequest } from "../middlewares/validateRequest.js";
+import { searchIndianStocks } from "../controllers/indianStockMarket.controller.js";
 import {
   addStockSchema,
   updateStockSchema,
@@ -27,8 +28,15 @@ import {
 
 const router = express.Router();
 
-// All stock routes require authentication
-router.use("/stocks", authenticateRequest);
+// GET /api/stocks?query=... is the public Indian-equity lookup used before a
+// transaction is created. Every portfolio endpoint remains JWT-protected.
+router.use("/stocks", (req, res, next) => {
+  if (req.method === "GET" && (req.query.query || req.query.search)) {
+    return searchIndianStocks(req, res, next);
+  }
+
+  return authenticateRequest(req, res, next);
+});
 
 /**
  * @route   POST /api/stocks
@@ -39,7 +47,8 @@ router.post("/stocks", validateRequest(addStockSchema), addStock);
 
 /**
  * @route   GET /api/stocks
- * @desc    Get all stocks for authenticated user with filtering and pagination
+ * @desc    Get all stocks for authenticated user with filtering and pagination.
+ *          Use GET /api/stocks?query=... for the public Indian-stock lookup.
  * @access  Private (JWT required)
  * @query   ?symbol=RELIANCE&sector=Energy&exchange=NSE&watchlist=true&page=1&limit=20&sortBy=symbol&sortOrder=asc
  */

@@ -8,6 +8,33 @@ const queryFor = (req) => req.validated?.query || req.query;
 const validObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const transactionOptions = ["buy", "sell"];
 
+const getIndianStockExchange = (symbol) => {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+
+  if (normalizedSymbol.endsWith(".NS")) return "NSE";
+  if (normalizedSymbol.endsWith(".BO")) return "BSE";
+
+  return null;
+};
+
+const getIndianStockIdentityError = ({ symbol, exchange, currency }) => {
+  const expectedExchange = getIndianStockExchange(symbol);
+
+  if (!expectedExchange) {
+    return "Only Indian NSE (.NS) and BSE (.BO) equity symbols can be added";
+  }
+
+  if (exchange !== expectedExchange) {
+    return `Exchange must be ${expectedExchange} for ${symbol}`;
+  }
+
+  if (currency !== "INR") {
+    return "Indian stocks must use INR currency";
+  }
+
+  return null;
+};
+
 const getRequestUserId = (req, res) => {
   const userId = req.user?.userId;
 
@@ -80,6 +107,11 @@ export const addStock = async (req, res) => {
       ...bodyFor(req),
       lastUpdated: new Date(),
     };
+
+    const identityError = getIndianStockIdentityError(stockData);
+    if (identityError) {
+      return sendError(res, { statusCode: 400, message: identityError });
+    }
 
     const ledgerError = await validateLedgerChange({ userId, next: stockData });
     if (ledgerError) {
@@ -267,6 +299,25 @@ export const updateStock = async (req, res) => {
     const updateData = { ...bodyFor(req) };
     delete updateData.userId;
     updateData.lastUpdated = new Date();
+
+    // The request validator normalises a changed symbol to its matching
+    // exchange. This additional combined-state check also prevents a caller
+    // from changing only exchange/currency and making an existing listing
+    // inconsistent.
+    if (
+      updateData.symbol !== undefined ||
+      updateData.exchange !== undefined ||
+      updateData.currency !== undefined
+    ) {
+      const identityError = getIndianStockIdentityError({
+        symbol: updateData.symbol ?? existingStock.symbol,
+        exchange: updateData.exchange ?? existingStock.exchange,
+        currency: updateData.currency ?? existingStock.currency,
+      });
+      if (identityError) {
+        return sendError(res, { statusCode: 400, message: identityError });
+      }
+    }
 
     const nextStock = {
       symbol: updateData.symbol ?? existingStock.symbol,

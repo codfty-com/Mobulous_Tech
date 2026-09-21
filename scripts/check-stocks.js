@@ -46,6 +46,36 @@ if (addStockSchema.body({ symbol: "ABC", name: "ABC Ltd", quantity: 0, price: 10
 if (addStockSchema.body({ symbol: "ABC", name: "ABC Ltd", quantity: 1 }).success) {
   throw new Error("A transaction without price was accepted");
 }
+const indianStock = addStockSchema.body({
+  symbol: "reliance.ns",
+  name: "Reliance Industries",
+  quantity: 1,
+  price: 2500,
+});
+if (
+  !indianStock.success ||
+  indianStock.data.exchange !== "NSE" ||
+  indianStock.data.currency !== "INR"
+) {
+  throw new Error("Indian stock identity was not normalised");
+}
+if (
+  addStockSchema.body({
+    symbol: "AAPL",
+    name: "Apple Inc.",
+    quantity: 1,
+    price: 200,
+  }).success ||
+  addStockSchema.body({
+    symbol: "RELIANCE.NS",
+    name: "Reliance Industries",
+    quantity: 1,
+    price: 2500,
+    exchange: "BSE",
+  }).success
+) {
+  throw new Error("A non-Indian or exchange-mismatched stock was accepted");
+}
 if (updateStockSchema.body({}).success) {
   throw new Error("An empty stock update was accepted");
 }

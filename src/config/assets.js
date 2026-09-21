@@ -4,12 +4,12 @@ export const ASSET_CATEGORIES = [
     key: "stocks",
     name: "Stocks",
     icon: "https://api.iconify.design/lucide:chart-candlestick.svg?color=%23156ff7",
-    description: "Company shares listed on stock exchanges.",
+    description: "Indian NSE and BSE company shares.",
     status: "available",
     dataRoute: "/api/stocks",
     searchParam: "query",
     displayOrder: 0,
-    examples: ["Apple", "Tesla", "TCS", "Reliance"]
+    examples: ["TCS", "Reliance", "HDFC Bank", "Infosys"]
   },
   {
     assetId: "02",
