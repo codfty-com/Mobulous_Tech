@@ -48,6 +48,49 @@ Reset example (use the code from the email):
 
 Use `Authorization: Bearer <accessToken>` for protected endpoints, including `/api/admin/users`. Existing `/api/auth/refresh-token`, `/api/auth/logout`, and `/api/auth/logout-all` routes remain available. Existing `/api/login-user` also checks the stored password and issues the same admin session claims for this account.
 
+## Admin frontend integration and 401 troubleshooting
+
+Log in against the same backend that serves the users endpoint, then send the returned `data.accessToken` on every protected request. The API does not set an authentication cookie; `credentials: "include"` alone does not authenticate a request. Opening the users URL directly in the address bar also does not send a Bearer token.
+
+```js
+const API = "https://mobulous-tech.vercel.app/api";
+
+// Call with the email and password entered in the admin login form.
+async function loginAndLoadUsers(email, password) {
+  const loginResponse = await fetch(`${API}/admin/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const login = await loginResponse.json();
+  if (!loginResponse.ok) throw new Error(login.message || "Login failed");
+
+  const { accessToken, refreshToken } = login.data;
+  const usersResponse = await fetch(`${API}/admin/users`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const users = await usersResponse.json();
+  if (!usersResponse.ok) throw new Error(users.message || "Unable to load users");
+
+  // Keep tokens in the application's session state for subsequent requests.
+  return { users: users.data, accessToken, refreshToken };
+}
+```
+
+With Axios, the token is at `loginResponse.data.data.accessToken` because Axios wraps the JSON response in its own `data` property. With `fetch`, it is at `login.data.accessToken` after calling `.json()` as above. Send the access token, not the refresh token, an entire response object, or a quoted JSON string.
+
+| Result | Action |
+| --- | --- |
+| 401: `Authorization header must be: Bearer <access_token>` | Inspect the GET request's Request Headers in DevTools and attach the header shown above. |
+| 401: access token expired | POST `{ "refreshToken": "<refresh token>" }` to `/api/auth/refresh-token`, use its `data.accessToken`, and retry once. If refresh fails, log in again. |
+| 401: invalid token or authentication failed | Log in again against this deployment. Tokens issued before an admin password reset, legacy admin tokens, or tokens signed with a different backend secret cannot be used. |
+| 403: admin access required | Log in using an active admin account; a regular user's token cannot list admin users. |
+| Browser CORS error | Check that the frontend origin is permitted by `CORS_ORIGINS` and that OPTIONS permits `Authorization`. |
+
+`strict-origin-when-cross-origin` is the browser's referrer policy, not an authorization error. CORS is configured in `src/config/env.js` and runs before route authentication in `src/app.js`. Preflight requests require no token and return 204 for allowed origins. Allowed responses include `Access-Control-Allow-Origin` matching the requesting origin and permit `Content-Type` and `Authorization`.
+
+If using an explicit `CORS_ORIGINS` allowlist in Vercel, include the actual frontend origin (scheme, hostname, and port, without a path or trailing slash), for example `https://admin.example.com,http://localhost:3000,http://localhost:5173`. Redeploy after changing environment variables. Check the admin site's origin, not just the API hostname. An unset allowlist currently permits all origins; CORS permission still does not grant admin access. Keep `SKIP_JWT_AUTH_FOR_TESTING=false`.
+
 ## Email and reset behavior
 
 The existing Gmail Nodemailer transport sends the OTP to the stored admin email. Configure `EMAIL_USER` and `EMAIL_PASS` (Gmail app password) for the sender. The admin login password is unrelated to the email sender password. `OTP_EXPIRY_MINUTES` defaults to 5.
