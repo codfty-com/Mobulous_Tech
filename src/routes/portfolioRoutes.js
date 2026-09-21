@@ -1,5 +1,5 @@
 import express from "express";
-import { authenticateRequest, requireAdmin } from "../middlewares/jwt.js";
+import { authenticateRequest } from "../middlewares/jwt.js";
 import { validateRequest } from "../middlewares/validateRequest.js";
 import {
   addPortfolioHolding,
@@ -18,18 +18,14 @@ import {
 } from "../validators/portfolio.validators.js";
 import {
   createAccountSchema,
-  createInstrumentSchema,
   updateAccountSchema,
-  updateInstrumentSchema,
 } from "../validators/portfolioCatalog.validators.js";
 import {
   createAccount,
-  createInstrument,
   deleteAccount,
   getAccounts,
   getInstruments,
   updateAccount,
-  updateInstrument,
 } from "../controllers/portfolioCatalog.controller.js";
 
 const router = express.Router();
@@ -43,8 +39,6 @@ router.post("/portfolio/accounts", validateRequest(createAccountSchema), createA
 router.patch("/portfolio/accounts/:accountId", validateRequest(updateAccountSchema), updateAccount);
 router.delete("/portfolio/accounts/:accountId", deleteAccount);
 router.get("/portfolio/instruments", getInstruments);
-router.post("/portfolio/instruments", requireAdmin, validateRequest(createInstrumentSchema), createInstrument);
-router.patch("/portfolio/instruments/:instrumentId", requireAdmin, validateRequest(updateInstrumentSchema), updateInstrument);
 router.post("/portfolio/holdings", validateRequest(createHoldingSchema), addPortfolioHolding);
 router.patch("/portfolio/holdings/:holdingId", validateRequest({ ...holdingParamsSchema, ...updateHoldingSchema }), updatePortfolioHolding);
 router.delete("/portfolio/holdings/:holdingId", validateRequest(holdingParamsSchema), removePortfolioHolding);

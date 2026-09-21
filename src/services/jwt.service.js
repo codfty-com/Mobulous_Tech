@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import RefreshToken from "../models/refreshToken.js";
+import User from "../models/user.js";
 import crypto from "crypto";
 
 /**
@@ -19,6 +20,7 @@ export const generateAccessToken = (payload) => {
     name: payload.name,
     admin: payload.admin || false,
     type: "access",
+    ...(payload.admin ? { adminTokenVersion: payload.adminTokenVersion ?? 0 } : {}),
   };
 
   return jwt.sign(tokenPayload, env.jwtSecret, {
@@ -47,6 +49,7 @@ export const generateRefreshToken = (payload) => {
     name: payload.name,
     admin: payload.admin || false,
     type: "refresh",
+    ...(payload.admin ? { adminTokenVersion: payload.adminTokenVersion ?? 0 } : {}),
     jti, // JWT ID for token tracking
   };
 
@@ -235,6 +238,7 @@ export const generateTokenPair = async (user, deviceInfo = {}) => {
     email: user.email,
     name: user.name,
     admin: user.admin || false,
+    adminTokenVersion: user.adminTokenVersion ?? 0,
   };
 
   const accessToken = generateAccessToken(payload);
@@ -261,6 +265,7 @@ export const generateTokenPair = async (user, deviceInfo = {}) => {
 export const refreshAccessToken = async (refreshToken, deviceInfo = {}) => {
   // Verify JWT signature and expiry
   const decoded = verifyRefreshToken(refreshToken);
+  await validateAdminSession(decoded);
 
   // Validate token in database (not revoked)
   const dbToken = await validateRefreshTokenInDb(refreshToken);
@@ -275,6 +280,7 @@ export const refreshAccessToken = async (refreshToken, deviceInfo = {}) => {
     email: decoded.email,
     name: decoded.name,
     admin: decoded.admin || false,
+    adminTokenVersion: decoded.adminTokenVersion,
   });
 
   // Optionally: Generate new refresh token (refresh token rotation)
@@ -324,4 +330,19 @@ export const decodeToken = (token) => {
  */
 export const cleanupExpiredTokens = async () => {
   return await RefreshToken.cleanupExpired();
+};
+
+// Re-check privileged sessions against MongoDB so removed roles, deleted admins,
+// legacy static tokens and sessions issued before a password reset cannot be used.
+export const validateAdminSession = async (payload) => {
+  if (!payload.admin) return;
+  if (!/^[a-f\d]{24}$/i.test(String(payload.userId)) || !Number.isInteger(payload.adminTokenVersion)) {
+    throw new Error("Admin token is invalid. Please log in again.");
+  }
+  const admin = await User.findOne({
+    _id: payload.userId, admin: true, isDeleted: { $ne: true }, isEmailVerified: true,
+  });
+  if (!admin || (admin.adminTokenVersion ?? 0) !== payload.adminTokenVersion) {
+    throw new Error("Admin token is invalid or has been revoked. Please log in again.");
+  }
 };

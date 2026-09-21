@@ -5,7 +5,6 @@ import {
   refreshAccessToken,
   revokeRefreshToken,
   revokeAllUserTokens,
-  cleanupExpiredTokens,
   verifyRefreshToken,
 } from "../services/jwt.service.js";
 
@@ -196,30 +195,6 @@ export const logoutAll = async (req, res) => {
 };
 
 /**
- * Clean up expired tokens (admin/maintenance endpoint)
- * POST /api/auth/cleanup-tokens
- */
-export const cleanupTokens = async (req, res) => {
-  try {
-    const deletedCount = await cleanupExpiredTokens();
-
-    return sendSuccess(res, {
-      message: `Cleanup completed. ${deletedCount} expired token(s) removed.`,
-      data: {
-        deletedCount,
-      },
-    });
-  } catch (error) {
-    console.error("Cleanup tokens error:", error);
-
-    return sendError(res, {
-      statusCode: 500,
-      message: "Failed to cleanup expired tokens",
-    });
-  }
-};
-
-/**
  * Get current user info from access token
  * GET /api/auth/me
  * Requires JWT authentication
@@ -258,7 +233,9 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select(
+      "+adminResetHash +adminResetExpiry +adminResetAttempts",
+    );
 
     if (!user) {
       return sendError(res, {
@@ -291,6 +268,12 @@ export const changePassword = async (req, res) => {
     user.otp = null;
     user.otpExpiry = null;
     user.lastLoginMethod = EMAIL_PASSWORD_METHOD;
+    if (user.admin) {
+      user.adminTokenVersion = (user.adminTokenVersion ?? 0) + 1;
+      user.adminResetHash = undefined;
+      user.adminResetExpiry = undefined;
+      user.adminResetAttempts = undefined;
+    }
 
     await user.save();
 

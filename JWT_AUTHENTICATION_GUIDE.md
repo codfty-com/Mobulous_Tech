@@ -306,7 +306,6 @@ curl -X GET http://localhost:4500/api/users/64abc123 \
 |---|---|---|
 | `GET /api/mutual-funds` | GET | ❌ No |
 | `GET /api/mutual-fund-data` | GET | ❌ No |
-| `POST /api/mutual-fund-data/refresh` | POST | ✅ Yes |
 
 ### Authentication
 

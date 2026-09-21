@@ -1,4 +1,4 @@
-import { verifyAccessToken } from "../services/jwt.service.js";
+import { verifyAccessToken, validateAdminSession } from "../services/jwt.service.js";
 import { env } from "../config/env.js";
 import { sendError } from "../utils/http.js";
 
@@ -7,7 +7,7 @@ import { sendError } from "../utils/http.js";
  * Expects: Authorization: Bearer <access_token>
  * Sets req.user with decoded token payload
  */
-export const authenticateRequest = (req, res, next) => {
+export const authenticateRequest = async (req, res, next) => {
   if (env.skipJwtAuthForTesting) {
     req.user = {
       userId:
@@ -43,6 +43,7 @@ export const authenticateRequest = (req, res, next) => {
   try {
     // Verify and decode the access token
     const decoded = verifyAccessToken(token);
+    await validateAdminSession(decoded);
 
     // Attach user info to request
     req.user = {

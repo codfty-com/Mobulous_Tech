@@ -1,0 +1,175 @@
+import assert from "node:assert/strict";
+import express from "express";
+import bcrypt from "bcryptjs";
+import nodemailer from "nodemailer";
+import { once } from "node:events";
+import User from "../src/models/user.js";
+import RefreshToken from "../src/models/refreshToken.js";
+import { env } from "../src/config/env.js";
+import adminRoutes from "../src/routes/admin/adminRoutes.js";
+import resetPassRoutes from "../src/routes/resetPassRoutes.js";
+import { authenticateRequest } from "../src/middlewares/jwt.js";
+import { refreshAccessToken, verifyAccessToken } from "../src/services/jwt.service.js";
+
+// Exercise the real HTTP routes, validation, bcrypt, JWTs and mail template with
+// isolated in-memory persistence and mail delivery. Never touch the configured DB.
+env.jwtSecret = "admin-auth-test-access-secret";
+env.jwtRefreshSecret = "admin-auth-test-refresh-secret";
+env.skipJwtAuthForTesting = false;
+env.emailUser = "sender@example.com";
+env.emailPass = "test-mail-password";
+env.otpExpiryMinutes = 5;
+const email = "admin@example.com";
+const password = "InitialPassword123!";
+const newPassword = "ChangedPassword456!";
+const admin = {
+  _id: "000000000000000000000001", email, name: "Admin", admin: true,
+  password: await bcrypt.hash(password, 4), isEmailVerified: true,
+  isDeleted: false, adminTokenVersion: 0,
+};
+const regular = { ...admin, _id: "000000000000000000000002", email: "user@example.com", admin: false };
+const rows = [admin, regular];
+const tokens = new Map();
+const sent = [];
+let mailFailure = false;
+nodemailer.createTransport = () => ({ sendMail: async (mail) => {
+  if (mailFailure) throw new Error("Simulated mail delivery failure");
+  sent.push(mail);
+} });
+
+const matches = (row, filter) => Object.entries(filter).every(([key, value]) => {
+  if (key === "$or") return value.some((part) => matches(row, part));
+  const actual = row[key];
+  if (value && typeof value === "object" && !(value instanceof Date)) {
+    return Object.entries(value).every(([op, expected]) => {
+      if (op === "$ne") return actual !== expected;
+      if (op === "$exists") return (actual !== undefined) === expected;
+      if (op === "$gt") return actual > expected;
+      if (op === "$lt") return actual < expected;
+      if (op === "$lte") return actual <= expected;
+      throw new Error(`Unsupported test filter: ${op}`);
+    });
+  }
+  return actual === value;
+});
+const apply = (row, update) => {
+  Object.assign(row, update.$set);
+  for (const [key, value] of Object.entries(update.$inc || {})) row[key] = (row[key] || 0) + value;
+  for (const key of Object.keys(update.$unset || {})) delete row[key];
+};
+User.findOne = async (filter) => structuredClone(rows.find((row) => matches(row, filter)) || null);
+User.findOneAndUpdate = (filter, update) => {
+  const row = rows.find((item) => matches(item, filter));
+  if (row) apply(row, update);
+  const result = structuredClone(row || null);
+  return { then: (resolve, reject) => Promise.resolve(result).then(resolve, reject), select: async () => result };
+};
+User.updateOne = async (filter, update) => {
+  const row = rows.find((item) => matches(item, filter));
+  if (row) apply(row, update);
+  return { modifiedCount: row ? 1 : 0 };
+};
+RefreshToken.prototype.save = async function () { tokens.set(this.token, this); return this; };
+RefreshToken.revokeOldTokens = async () => {};
+RefreshToken.revokeAllForUser = async (id) => {
+  let count = 0;
+  for (const token of tokens.values()) {
+    if (String(token.userId) === String(id)) { token.isRevoked = true; count++; }
+  }
+  return count;
+};
+RefreshToken.findOne = async ({ token }) => {
+  const record = tokens.get(token);
+  return record && !record.isRevoked ? record : null;
+};
+
+const app = express();
+app.use(express.json());
+app.use("/api/admin", adminRoutes);
+app.use("/api", resetPassRoutes);
+app.get("/session", authenticateRequest, (req, res) => res.json(req.user));
+const server = app.listen(0, "127.0.0.1");
+await once(server, "listening");
+const base = `http://127.0.0.1:${server.address().port}`;
+const post = async (path, body) => {
+  const response = await fetch(`${base}/api/${path}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  return { status: response.status, body: await response.json() };
+};
+const session = async (token) => (await fetch(`${base}/session`, { headers: { Authorization: `Bearer ${token}` } })).status;
+const otpFromMail = () => sent.at(-1).text.match(/\b\d{6}\b/)[0];
+const allowResend = () => { admin.adminResetSentAt = new Date(Date.now() - 61_000); };
+const forgot = () => post("admin/forgot-password", { email });
+const reset = (otp, value = newPassword) => post("admin/reset-password", { email, otp, newPassword: value });
+
+try {
+  for (const body of [{}, { email, password: {} }, { email: { $ne: null }, password }, { email, password: "x".repeat(73) }]) {
+    assert.equal((await post("admin/login", body)).status, 400);
+  }
+  assert.equal((await post("admin/login", { email, password: "wrong" })).status, 401);
+  assert.equal((await post("admin/login", { email: regular.email, password })).status, 401);
+  assert.equal((await post("admin/login", { email: "missing@example.com", password })).status, 401);
+  admin.isDeleted = true;
+  assert.equal((await post("admin/login", { email, password })).status, 401);
+  admin.isDeleted = false;
+  const login = await post("admin/login", { email: " ADMIN@EXAMPLE.COM ", password });
+  assert.equal(login.status, 200);
+  const firstTokens = login.body.data;
+  assert.equal(firstTokens.user.password, undefined);
+  assert.equal(verifyAccessToken(firstTokens.accessToken).admin, true);
+  assert.equal(await session(firstTokens.accessToken), 200);
+  assert.ok((await refreshAccessToken(firstTokens.refreshToken)).accessToken);
+  admin.admin = false;
+  assert.equal(await session(firstTokens.accessToken), 401);
+  admin.admin = true;
+
+  const requested = await forgot();
+  assert.equal(requested.status, 200);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].to, email);
+  assert.notEqual(admin.adminResetHash, otpFromMail());
+  assert.ok(!JSON.stringify(requested.body).includes(otpFromMail()));
+  assert.equal((await forgot()).status, 200);
+  assert.equal(sent.length, 1, "Cooldown prevents duplicate emails");
+  const unknown = await post("admin/forgot-password", { email: "unknown@example.com" });
+  assert.deepEqual(unknown.body, requested.body);
+  assert.equal((await post("admin/forgot-password", { email: regular.email })).status, 200);
+  assert.equal(sent.length, 1);
+  assert.equal((await post("forgot-password", { email })).status, 400, "Public user reset must not reset an admin");
+  assert.equal((await post("reset-password", { email, otp: otpFromMail(), newPassword })).status, 400);
+  assert.equal((await post("admin/reset-password", { email, newPassword })).status, 400);
+  const wrongOtp = otpFromMail() === "000000" ? "000001" : "000000";
+  for (let attempt = 0; attempt < 5; attempt++) assert.equal((await reset(wrongOtp)).status, 400);
+  assert.equal((await reset(otpFromMail())).status, 400, "Five wrong guesses exhaust the challenge");
+
+  allowResend();
+  await forgot();
+  admin.adminResetExpiry = new Date(Date.now() - 1000);
+  assert.equal((await reset(otpFromMail())).status, 400, "Expired OTP rejected");
+  allowResend();
+  await forgot();
+  const otp = otpFromMail();
+  assert.equal((await post("admin/verify-otp", { email, otp })).status, 200);
+  const concurrent = await Promise.all([reset(otp), reset(otp)]);
+  assert.deepEqual(concurrent.map((response) => response.status).sort(), [200, 400]);
+  assert.equal((await reset(otp)).status, 400, "Consumed OTP cannot be replayed");
+  assert.ok(await bcrypt.compare(newPassword, admin.password));
+  assert.equal(admin.adminResetHash, undefined);
+  assert.equal(await session(firstTokens.accessToken), 401, "Old access JWT invalidated");
+  await assert.rejects(refreshAccessToken(firstTokens.refreshToken), /invalid|revoked/i);
+  assert.equal((await post("admin/login", { email, password })).status, 401);
+  const newLogin = await post("admin/login", { email, password: newPassword });
+  assert.equal(newLogin.status, 200);
+  assert.equal(await session(newLogin.body.data.accessToken), 200);
+
+  allowResend();
+  mailFailure = true;
+  assert.equal((await forgot()).status, 503);
+  assert.equal(admin.adminResetHash, undefined, "Undelivered challenge is removed");
+  mailFailure = false;
+  assert.equal((await forgot()).status, 200, "Delivery can be retried after failure");
+  console.log("Admin auth checks passed: login, role enforcement, email OTP, cooldown, attempts, expiry, concurrent reset, replay, session invalidation and delivery failure.");
+} finally {
+  await new Promise((resolve) => server.close(resolve));
+}

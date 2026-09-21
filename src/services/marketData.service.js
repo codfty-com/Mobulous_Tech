@@ -45,7 +45,9 @@ export const MARKET_COLLECTION_TYPES = {
   trending: "trending_symbols",
   movers: "market_movers",
   topShares: "top_share_markets",
-  stockSearch: "stock_search",
+  // The versioned cache key prevents an old, region-only search cache from
+  // serving non-Indian instruments after the Indian-equity restriction.
+  stockSearch: "indian_stock_search_v2",
 };
 export const DEFAULT_STOCK_SEARCH_COUNT = 10;
 export const MAX_STOCK_SEARCH_COUNT = 25;
@@ -84,6 +86,23 @@ export const MARKET_MOVER_LISTS = {
     id: "day_losers",
     label: "Top Losers",
     description: "Worst-performing instruments for the current trading day.",
+  },
+};
+
+// Yahoo's predefined day_gainers/day_losers screeners can return US symbols
+// even when `region=IN` is supplied. Indian movers are therefore ranked from
+// the configured NSE (.NS) universe using live Yahoo quotes instead.
+export const INDIAN_MARKET_MOVER_COUNT = 25;
+export const INDIAN_MARKET_MOVER_LISTS = {
+  gainers: {
+    id: "indian_day_gainers",
+    label: "Top Gainers",
+    description: "Top NSE shares ranked by today's percentage gain.",
+  },
+  losers: {
+    id: "indian_day_losers",
+    label: "Top Losers",
+    description: "Top NSE shares ranked by today's percentage loss.",
   },
 };
 
@@ -638,6 +657,7 @@ const buildStockSearchResponse = ({ collection, source, query, warning }) => ({
 
 const normalizeStockSearchItem = ({ quote, detailQuote, rank, region }) => {
   const symbol = detailQuote?.symbol || quote.symbol || null;
+  const indianExchange = getIndianStockExchangeFromSymbol(symbol);
   const shortName =
     detailQuote?.shortName || quote.shortName || quote.shortname || null;
   const longName =
@@ -680,7 +700,12 @@ const normalizeStockSearchItem = ({ quote, detailQuote, rank, region }) => {
 
   return {
     ...latest,
+    // Expose a stable exchange name for the add-to-portfolio form. The raw
+    // provider exchange code remains available for diagnostics.
+    exchange: indianExchange,
     exchangeCode,
+    country: "India",
+    isIndianStock: true,
     score: toNumberOrNull(quote.score),
     details: normalizeMoverDetailQuote(detailQuote),
     source: "yahoo-finance2",
@@ -691,6 +716,22 @@ const isStockQuote = (quote) =>
   String(quote?.quoteType || "")
     .trim()
     .toUpperCase() === "EQUITY";
+
+// Yahoo's `region=IN` is a presentation hint, not an exchange filter. It can
+// still return overseas equities, ADRs, funds, and indices. Yahoo identifies
+// Indian cash-equity listings with the NSE/BSE suffixes below, so require both
+// the equity type and a recognised Indian listing symbol.
+export const getIndianStockExchangeFromSymbol = (symbol) => {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+
+  if (normalizedSymbol.endsWith(".NS")) return "NSE";
+  if (normalizedSymbol.endsWith(".BO")) return "BSE";
+
+  return null;
+};
+
+const isIndianStockQuote = (quote) =>
+  isStockQuote(quote) && Boolean(getIndianStockExchangeFromSymbol(quote?.symbol));
 
 const normalizeSearchText = (value) =>
   String(value || "")
@@ -735,7 +776,7 @@ const fetchStockSearchFromYahoo = async ({ query, region, count, lang }) => {
     { validateResult: false },
   );
   const quotes = Array.isArray(result?.quotes) ? result.quotes : [];
-  const providerSearchQuotes = quotes.filter(isStockQuote);
+  const providerSearchQuotes = quotes.filter(isIndianStockQuote);
   const existingSymbols = new Set(
     providerSearchQuotes.map((quote) => quote.symbol).filter(Boolean),
   );
@@ -1080,6 +1121,13 @@ export const searchStockSymbols = async ({
 } = {}) => {
   const cleanQuery = normalizeRequiredSearchQuery(query);
   const normalizedRegion = normalizeRegion(region);
+  if (normalizedRegion !== "IN") {
+    const error = new Error(
+      "Only Indian NSE (.NS) and BSE (.BO) equity searches are supported",
+    );
+    error.statusCode = 400;
+    throw error;
+  }
   const normalizedCount = normalizeStockSearchCount(count);
   const normalizedLang = normalizeLang(normalizedRegion, lang);
   const cacheKey = buildCollectionCacheKey({
@@ -1563,6 +1611,230 @@ export const getMarketMoverDetail = async ({
       parentSource: movers.source,
       warning:
         "Detailed quote request failed, returning market mover list item instead",
+    };
+  }
+};
+
+const getIndianMarketMoverConfig = (moverType) => {
+  const normalizedMoverType = String(moverType || "")
+    .trim()
+    .toLowerCase();
+  const config = INDIAN_MARKET_MOVER_LISTS[normalizedMoverType];
+
+  if (!config) {
+    const error = new Error("Unsupported Indian market movers list");
+    error.statusCode = 400;
+    error.details = {
+      supportedLists: Object.keys(INDIAN_MARKET_MOVER_LISTS),
+    };
+    throw error;
+  }
+
+  return { normalizedMoverType, config };
+};
+
+const fetchIndianMarketMoversFromYahoo = async ({ moverType, list }) => {
+  let quoteMap = {};
+
+  try {
+    quoteMap = await fetchQuotesBySymbols(TOP_SHARE_MARKET_SYMBOLS);
+  } catch (error) {
+    // A partial response is still useful if Yahoo rejects a large batch.
+    const results = await Promise.allSettled(
+      TOP_SHARE_MARKET_SYMBOLS.map((symbol) => fetchDetailedQuoteBySymbol(symbol)),
+    );
+
+    quoteMap = results.reduce((items, result, index) => {
+      if (result.status === "fulfilled" && result.value) {
+        items[TOP_SHARE_MARKET_SYMBOLS[index]] = result.value;
+      }
+
+      return items;
+    }, {});
+  }
+
+  const quotes = TOP_SHARE_MARKET_SYMBOLS.map((symbol) => quoteMap[symbol])
+    .filter((quote) => String(quote?.symbol || "").toUpperCase().endsWith(".NS"))
+    .filter((quote) => Number.isFinite(quote?.regularMarketChangePercent));
+  const direction = moverType === "gainers" ? -1 : 1;
+  const sortedQuotes = quotes.sort(
+    (left, right) =>
+      direction *
+      (left.regularMarketChangePercent - right.regularMarketChangePercent),
+  );
+
+  if (sortedQuotes.length < INDIAN_MARKET_MOVER_COUNT) {
+    const error = new Error(
+      "Yahoo Finance did not return enough NSE quotes to build the Indian movers list",
+    );
+    error.statusCode = 502;
+    error.details = {
+      requiredCount: INDIAN_MARKET_MOVER_COUNT,
+      receivedCount: sortedQuotes.length,
+    };
+    throw error;
+  }
+
+  return {
+    meta: {
+      country: "India",
+      exchange: "NSE",
+      universe: "configured-nse-99",
+      universeSize: TOP_SHARE_MARKET_SYMBOLS.length,
+      providerQuoteCount: quotes.length,
+      rankedBy: "regularMarketChangePercent",
+      sortOrder: moverType === "gainers" ? "DESC" : "ASC",
+    },
+    data: sortedQuotes
+      .slice(0, INDIAN_MARKET_MOVER_COUNT)
+      .map((quote, index) =>
+        normalizeScreenerItem({
+          // Yahoo may label a quote response with its default US region even
+          // though the symbol and exchange are NSE. The endpoint's region is
+          // intentionally fixed to India.
+          quote: { ...quote, region: "IN" },
+          rank: index + 1,
+          region: "IN",
+          listId: list.id,
+        }),
+      ),
+  };
+};
+
+export const getIndianMarketMoverData = async ({
+  moverType,
+  forceRefresh = false,
+} = {}) => {
+  const { normalizedMoverType, config } = getIndianMarketMoverConfig(moverType);
+  const region = "IN";
+  const lang = "en-IN";
+  const cacheKey = buildCollectionCacheKey({
+    collectionType: MARKET_COLLECTION_TYPES.movers,
+    region,
+    listId: config.id,
+    count: INDIAN_MARKET_MOVER_COUNT,
+    lang,
+  });
+
+  if (!forceRefresh) {
+    const cached = await getFreshCollectionCache(cacheKey);
+
+    if (cached) {
+      return {
+        list: config,
+        moverType: normalizedMoverType,
+        ...buildCollectionResponse(cached, "cache"),
+      };
+    }
+  }
+
+  try {
+    const fetchedAt = new Date();
+    const providerResult = await fetchIndianMarketMoversFromYahoo({
+      moverType: normalizedMoverType,
+      list: config,
+    });
+    const snapshot = await saveCollectionSnapshot({
+      cacheKey,
+      collectionType: MARKET_COLLECTION_TYPES.movers,
+      listId: config.id,
+      region,
+      lang,
+      requestedCount: INDIAN_MARKET_MOVER_COUNT,
+      meta: providerResult.meta,
+      data: providerResult.data,
+      fetchedAt,
+    });
+
+    return {
+      list: config,
+      moverType: normalizedMoverType,
+      ...buildCollectionResponse(snapshot.toObject(), "provider"),
+    };
+  } catch (error) {
+    const fallbackCache = await getAnyCollectionCache(cacheKey);
+
+    if (fallbackCache) {
+      return {
+        list: config,
+        moverType: normalizedMoverType,
+        ...buildCollectionResponse(
+          fallbackCache,
+          "stale-cache",
+          "Live Yahoo Finance request failed, returning the last cached Indian movers list instead",
+        ),
+      };
+    }
+
+    error.statusCode = error.statusCode || 502;
+    throw error;
+  }
+};
+
+export const getIndianMarketMoverDetail = async ({
+  moverType,
+  symbol,
+  forceRefresh = false,
+} = {}) => {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+
+  if (!normalizedSymbol) {
+    const error = new Error("An NSE stock symbol is required");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!normalizedSymbol.endsWith(".NS")) {
+    const error = new Error("Only NSE (.NS) symbols are supported");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const movers = await getIndianMarketMoverData({
+    moverType,
+    forceRefresh,
+  });
+  const item = movers.data.find((mover) => mover.symbol === normalizedSymbol);
+
+  if (!item) {
+    const error = new Error("Stock is not in the current Indian movers list");
+    error.statusCode = 404;
+    error.details = {
+      symbol: normalizedSymbol,
+      list: movers.list.id,
+      message: "Use a symbol returned by the corresponding top-gainers or top-losers endpoint.",
+    };
+    throw error;
+  }
+
+  try {
+    const quote = await fetchDetailedQuoteBySymbol(normalizedSymbol);
+
+    return {
+      ...normalizeMoverDetail({
+        item,
+        quote,
+        listId: movers.list.id,
+        list: movers.list,
+        region: "IN",
+        source: "provider",
+      }),
+      parentSource: movers.source,
+      ...(movers.warning ? { warning: movers.warning } : {}),
+    };
+  } catch (error) {
+    return {
+      ...normalizeMoverDetail({
+        item,
+        quote: null,
+        listId: movers.list.id,
+        list: movers.list,
+        region: "IN",
+        source: movers.source,
+      }),
+      parentSource: movers.source,
+      warning:
+        "Detailed Yahoo Finance quote request failed, returning the current movers-list item instead",
     };
   }
 };

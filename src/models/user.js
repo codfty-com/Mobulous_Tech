@@ -45,6 +45,15 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
     // Set only by trusted server-side administration workflows. This field is
     // intentionally never accepted from public signup or profile updates.
     admin: {
@@ -53,6 +62,11 @@ const userSchema = new mongoose.Schema(
     },
     otp: String,
     otpExpiry: Date,
+    adminTokenVersion: { type: Number, default: 0 },
+    adminResetHash: { type: String, select: false },
+    adminResetExpiry: { type: Date, select: false },
+    adminResetAttempts: { type: Number, select: false },
+    adminResetSentAt: { type: Date, select: false },
   },
   { timestamps: true },
 );

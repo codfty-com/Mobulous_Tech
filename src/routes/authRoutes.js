@@ -1,11 +1,10 @@
 import express from "express";
-import { authenticateRequest, requireAdmin } from "../middlewares/jwt.js";
+import { authenticateRequest } from "../middlewares/jwt.js";
 import {
   refreshToken,
   revokeToken,
   logout,
   logoutAll,
-  cleanupTokens,
   getCurrentUser,
   changePassword,
 } from "../controllers/auth.controller.js";
@@ -60,12 +59,5 @@ router.post(
   validateRequest(changePasswordSchema),
   changePassword,
 );
-
-/**
- * @route   POST /api/auth/cleanup-tokens
- * @desc    Clean up expired tokens (maintenance endpoint)
- * @access  Public (should be restricted in production)
- */
-router.post("/auth/cleanup-tokens", authenticateRequest, requireAdmin, cleanupTokens);
 
 export default router;

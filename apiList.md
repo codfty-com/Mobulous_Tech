@@ -6,7 +6,22 @@ Deployed base URL: `https://mobulous-tech.vercel.app`
 
 Use the `/api` URLs below for every application integration. Only the API-list and asset routers currently also expose root aliases; those aliases are compatibility routes and should not be used by new clients.
 
-Protected endpoints require `Authorization: Bearer <accessToken>`. Admin endpoints require the same header with a token whose `admin` claim is `true`. JSON endpoints use `Content-Type: application/json`.
+Protected endpoints require `Authorization: Bearer <accessToken>`. Protected admin endpoints require a current MongoDB-backed admin session. The admin login and password-reset endpoints below are public. JSON endpoints use `Content-Type: application/json`.
+
+## Admin login and password recovery
+
+Admin credentials are stored in the MongoDB `users` collection with `admin: true` and a bcrypt password hash. No hardcoded admin password is accepted. See [admin authentication setup and behavior](docs/10_admin_auth.md).
+
+| Method | Path | JSON body |
+| --- | --- | --- |
+| POST | `/api/admin/login` | `{"email":"assetheaven.admin@yopmail.com","password":"<admin password>"}` |
+| POST | `/api/admin/forgot-password` | `{"email":"assetheaven.admin@yopmail.com"}` |
+| POST | `/api/admin/verify-otp` | `{"email":"assetheaven.admin@yopmail.com","otp":"123456"}` |
+| POST | `/api/admin/reset-password` | `{"email":"assetheaven.admin@yopmail.com","otp":"123456","newPassword":"<new password>"}` |
+
+Login returns `data.user`, `data.accessToken`, `data.refreshToken`, `data.expiresIn`, and `data.tokenType`. Use the access token for `/api/admin/users` and other protected APIs. Refresh through the existing `/api/auth/refresh-token` endpoint.
+
+The OTP verification step is optional; reset always requires the OTP again. Codes expire after `OTP_EXPIRY_MINUTES` (default 5), allow at most 5 verification/reset attempts combined, and can only reset the password once. Email requests have a 60-second cooldown. Successful reset invalidates previous admin access and refresh tokens.
 
 ## 1. Get API List Markdown
 
@@ -56,39 +71,50 @@ Example item:
   "status": "available",
   "dataRoute": "/api/stocks",
   "searchParam": "query",
-  "examples": ["HDFC Bank", "Reliance", "Apple"]
+    "examples": ["HDFC Bank", "Reliance", "TCS"]
 }
 ```
 
-### Asset administration and net worth
+### Asset details and net worth
 
 | Method | Production URL | Auth | Payload / query |
 |---|---|---|---|
-| `GET` | `https://mobulous-tech.vercel.app/api/assets/:id` | Public | No payload; `id` is the asset MongoDB `_id` |
-| `POST` | `https://mobulous-tech.vercel.app/api/assets` | Admin | Asset JSON shown below |
-| `PATCH` or `PUT` | `https://mobulous-tech.vercel.app/api/assets/:id` | Admin | Any non-empty subset of the asset JSON fields |
-| `DELETE` | `https://mobulous-tech.vercel.app/api/assets/:id` | Admin | No payload |
+| `GET` | `https://mobulous-tech.vercel.app/api/assets/:id` | Required | No payload; `id` is the asset MongoDB `_id` |
 | `GET` | `https://mobulous-tech.vercel.app/api/assets/net-worth` | Required | No payload; optional `userId` query is admin-only for another user |
 
-Create-asset payload (`key` and `name` required):
+## Indian Top 99 Stock Market Data
 
-```json
-{
-  "key": "etf",
-  "name": "ETF",
-  "icon": "https://example.com/etf.svg",
-  "description": "Exchange-traded funds",
-  "status": "coming_soon",
-  "dataRoute": null,
-  "searchParam": null,
-  "examples": ["NIFTYBEES"],
-  "valuationSource": "none",
-  "sortOrder": 3,
-  "isActive": true
-}
-```
+This public API is restricted to the configured 99 NSE (`.NS`) shares. It does not accept a country, exchange, count, or symbol-list parameter, so it cannot return non-Indian market data.
 
-Allowed `status`: `available`, `coming_soon`, `disabled`. Allowed `valuationSource`: `stocks`, `mutual_funds`, `none`.
+| Period | Method | Local URL | Chart coverage |
+|---|---|---|---|
+| Daily | `GET` | `http://localhost:4500/api/indian-market/top-99-stocks/daily` | One trading day; 5-minute candles |
+| Weekly | `GET` | `http://localhost:4500/api/indian-market/top-99-stocks/weekly` | Five trading days; daily candles |
+| Monthly | `GET` | `http://localhost:4500/api/indian-market/top-99-stocks/monthly` | One month; daily candles |
+
+- Auth: Not required.
+- Payload: Not required.
+- Optional query: `forceRefresh=true` bypasses the short-lived cache.
+- Valid `:period` values: `daily`, `weekly`, `monthly`.
+
+Each response has `country: "India"`, `exchange: "NSE"`, `count: 99`, and a `data` array. Each item contains `rank`, `symbol`, display name, currency, exchange, latest price, previous close, and an OHLCV `points` array (`time`, `open`, `high`, `low`, `close`, `volume`, `adjustedClose`). Individual provider failures are returned as an item with `status: "error"` and are also listed in `meta.failedSymbols`.
+
+## Indian Top Gainers and Top Losers
+
+These public endpoints return exactly 25 NSE (`.NS`) shares. Yahoo Finance's predefined movers screen can return non-Indian symbols, so these endpoints instead rank live Yahoo quotes from the configured Indian NSE universe. The response has `country: "India"`, `exchange: "NSE"`, and `meta.universe: "configured-nse-99"`.
+
+| Purpose | Method | Local URL |
+|---|---|---|
+| List top 25 gainers | `GET` | `http://localhost:4500/api/indian-market/top-gainers` |
+| Gainer details after a click | `GET` | `http://localhost:4500/api/indian-market/top-gainers/:symbol` |
+| List top 25 losers | `GET` | `http://localhost:4500/api/indian-market/top-losers` |
+| Loser details after a click | `GET` | `http://localhost:4500/api/indian-market/top-losers/:symbol` |
+
+- Auth: Not required.
+- Optional query: `forceRefresh=true` skips the two-minute market-data cache.
+- For a detail URL, pass the exact `symbol` returned by its matching list, for example: `GET /api/indian-market/top-gainers/HDFCBANK.NS`.
+- Detail routes reject non-NSE symbols and return `404` when the stock is no longer in that current top-25 list.
+- Each list item includes rank, symbol, company name, INR price, day change/change percentage, OHLC, volume, market time, and 52-week high/low. Detail responses add bid/ask, average volume, market cap, shares outstanding, book value, P/E, EPS, dividend, and beta when Yahoo provides them.
 
 ## 3. Create User / Signup
 
@@ -171,7 +197,6 @@ Allowed `status`: `available`, `coming_soon`, `disabled`. Allowed `valuationSour
 | `POST` | `https://mobulous-tech.vercel.app/api/auth/logout-all` | Required | No payload |
 | `GET` | `https://mobulous-tech.vercel.app/api/auth/me` | Required | No payload |
 | `POST` | `https://mobulous-tech.vercel.app/api/auth/change-password` | Required | `{ "oldPassword": "OldPass123", "newPassword": "NewPass456" }` |
-| `POST` | `https://mobulous-tech.vercel.app/api/auth/cleanup-tokens` | Admin | No payload |
 
 Access tokens are sent as `Authorization: Bearer <accessToken>`. The refresh and revoke endpoints accept refresh tokens only in the JSON body.
 
@@ -182,47 +207,9 @@ Access tokens are sent as `Authorization: Bearer <accessToken>`. The refresh and
 - Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users`
 - Payload: Not required
 - Auth: Admin access required.
-- Purpose: Returns all users with `password`, `otp`, and `otpExpiry` excluded.
+- Purpose: Returns all users, including soft-deleted users, with `password`, `otp`, and `otpExpiry` excluded. Each user includes `isDeleted` and `deletedAt`.
 
-## 7A. Admin Search Users By Name Or Email
-
-- Method: `GET`
-- Local URL: `http://localhost:4500/api/admin/users/search`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users/search`
-- Payload: Not required
-- Auth: Admin access required.
-- Purpose: Searches users by name and/or email with `password`, `otp`, and `otpExpiry` excluded.
-- Example local URLs:
-  - `http://localhost:4500/api/admin/users/search?query=john`
-  - `http://localhost:4500/api/admin/users/search?name=john`
-  - `http://localhost:4500/api/admin/users/search?email=john@example.com`
-
-Query params:
-
-| Parameter | Required | Default | Example |
-|---|---:|---|---|
-| `query` or `search` | No | none | `john` |
-| `name` | No | none | `john` |
-| `email` | No | none | `john@example.com` |
-| `page` | No | `1` | `1` |
-| `limit` | No | `20`, max `100` | `10` |
-
-## 8. Get User By Query ID
-
-- Method: `GET`
-- Local URL: `http://localhost:4500/api/admin/users?_id=64abc123abc123abc123abcd`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users?_id=64abc123abc123abc123abcd`
-- Payload: Not required
-- Auth: Admin access required.
-- Query params:
-
-| Parameter | Required | Example |
-|---|---:|---|
-| `_id` or `id` | Yes | `64abc123abc123abc123abcd` |
-
-- Purpose: `GET /api/admin/users` switches to single-user lookup when `_id` or `id` is present.
-
-## 9. Get User By Path ID
+## 8. Get User By Path ID
 
 - Method: `GET`
 - Local URL: `http://localhost:4500/api/admin/users/:_id`
@@ -231,7 +218,7 @@ Query params:
 - Payload: Not required
 - Auth: Admin access required.
 
-## 10. Update User Profile By ID
+## 9. Update User Profile By ID
 
 - Method: `PATCH`
 - Local URL: `http://localhost:4500/api/users/:_id`
@@ -252,7 +239,7 @@ Query params:
 - Allowed fields: `name`, `phone`, `profilePicture`
 - Note: Send `null` or `""` for `phone` or `profilePicture` to remove them.
 
-## 11. Delete User By ID (Admin)
+## 10. Soft Delete User By ID (Admin)
 
 - Method: `DELETE`
 - Local URL: `http://localhost:4500/api/admin/users/:_id`
@@ -260,6 +247,18 @@ Query params:
 - Example local URL: `http://localhost:4500/api/admin/users/64abc123abc123abc123abcd`
 - Payload: Not required
 - Auth: Admin access required.
+
+- Purpose: Marks the user as deleted while retaining the record and its `deletedAt` timestamp.
+
+## 11. Permanently Delete User By ID (Admin)
+
+- Method: `DELETE`
+- Local URL: `http://localhost:4500/api/admin/users/:_id/permanent`
+- Deployed URL: `https://mobulous-tech.vercel.app/api/admin/users/:_id/permanent`
+- Example local URL: `http://localhost:4500/api/admin/users/64abc123abc123abc123abcd/permanent`
+- Payload: Not required
+- Auth: Admin access required.
+- Purpose: Permanently removes the user record. This action cannot be undone.
 
 ## 12. Forgot Password / Send OTP
 
@@ -319,12 +318,14 @@ Query params:
 | Parameter | Required | Default | Example |
 |---|---:|---|---|
 | `query` or `search` | Yes | none | `hdfc bank` |
-| `region` | No | `US` | `IN` |
+| `region` | No | `IN` (the only accepted value) | `IN` |
 | `count` or `limit` | No | `10`, max `25` | `10` |
 | `lang` | No | region language | `en-IN` |
 | `forceRefresh` | No | `false` | `true` |
 
-- Purpose: Searches Yahoo Finance stock symbols by company/share name and returns only equity results.
+- Auth: Not required.
+- Purpose: Searches only Indian cash equities listed on NSE (`.NS`) or BSE (`.BO`). Funds, indices, ETFs, crypto, ADRs, and overseas shares are excluded. Every result includes `country: "India"`, `exchange`, `currency`, and `isIndianStock: true` so it can be used to prefill the add-transaction form.
+- `region` must be `IN`; any other value returns `400`.
 - Example local URL: `http://localhost:4500/api/stocks?query=hdfc%20bank&region=IN&limit=10&lang=en-IN`
 - Example deployed URL: `https://mobulous-tech.vercel.app/api/stocks?query=reliance&region=IN&limit=10&lang=en-IN`
 
@@ -421,32 +422,6 @@ Only two public news feeds are available. Both accept optional `count` (default 
 | `limit` | No | `30` | `30` or `all` |
 | `forceRefresh` | No | `false` | `true` |
 
-## 46. Refresh Mutual Fund Data
-
-- Method: `POST`
-- Local URL: `http://localhost:4500/api/mutual-fund-data/refresh`
-- Deployed URL: `https://mobulous-tech.vercel.app/api/mutual-fund-data/refresh`
-- Headers: `Content-Type: application/json`, `Authorization: Bearer <accessToken>`
-- Auth: Required.
-- Payload option 1:
-
-```json
-{
-  "schemeCodes": [122639, 120465]
-}
-```
-
-- Payload option 2:
-
-```json
-{
-  "schemeCode": 122639
-}
-```
-
-- Alternative query URL: `http://localhost:4500/api/mutual-fund-data/refresh?schemeCodes=122639,120465`
-- Note: If scheme code input is omitted, default scheme codes are refreshed.
-
 ## Common Error Shape
 
 ```json
@@ -506,6 +481,7 @@ No endpoint is currently configured for these areas:
 ```
 
 - Required fields: `symbol`, `name`, `quantity`, and either `price` or `purchasePrice`.
+- Only Indian equities can be saved: the symbol must end in `.NS` (NSE) or `.BO` (BSE). The API derives the matching `exchange` and saves the currency as `INR`; a conflicting exchange or non-INR currency is rejected.
 - `quantity` must be greater than zero. The transaction type controls whether it adds to or subtracts from the holding.
 - `price` is accepted as a frontend-friendly alias for `purchasePrice`; for a sell row it is the sale price. If `currentPrice` is omitted, `price` is also used as `currentPrice`.
 - Calculated response fields include `transactionValue`, `signedQuantity`, and the legacy `totalInvestment`/`totalValue` aliases.
@@ -808,19 +784,17 @@ This index is the authoritative list of primary `/api` routes implemented in `sr
 |---|---|---|---|
 | `GET` | `/` | Public | None |
 | `GET` | `/api/api-list` | Public | None |
-| `GET` | `/api/assets` | Public | None |
+| `GET` | `/api/assets` | User | None |
 | `GET` | `/api/assets/net-worth` | User | None |
-| `POST` | `/api/assets` | Admin | Asset object |
-| `GET` | `/api/assets/:id` | Public | None |
-| `PATCH`, `PUT` | `/api/assets/:id` | Admin | Partial asset object |
-| `DELETE` | `/api/assets/:id` | Admin | None |
+| `GET` | `/api/assets/:id` | User | None |
 | `POST` | `/api/create-user` | Public | `name`, `email`, `password`; optional `phone` |
 | `POST` | `/api/verify-email-otp` | Public | `email`, `otp` |
 | `POST` | `/api/login-user` | Public | `email`, `password` |
 | `POST` | `/api/login-google` | Public | `idToken` |
 | `GET` | `/api/admin/users` | Admin | None |
-| `GET` | `/api/admin/users/search` | Admin | None |
-| `GET`, `DELETE` | `/api/admin/users/:_id` | Admin | None |
+| `GET` | `/api/admin/users/:_id` | Admin | None |
+| `DELETE` | `/api/admin/users/:_id` | Admin | Soft delete |
+| `DELETE` | `/api/admin/users/:_id/permanent` | Admin | Permanent delete |
 | `PATCH` | `/api/users/:_id` | User/owner or admin | Partial profile object |
 | `POST` | `/api/forgot-password` | Public | `email` |
 | `POST` | `/api/verify-otp` | Public | `email`, `otp` |
@@ -831,16 +805,16 @@ This index is the authoritative list of primary `/api` routes implemented in `sr
 | `POST` | `/api/auth/logout-all` | User | None |
 | `GET` | `/api/auth/me` | User | None |
 | `POST` | `/api/auth/change-password` | User | `oldPassword`, `newPassword` |
-| `POST` | `/api/auth/cleanup-tokens` | Admin | None |
 | `GET` | `/api/indices` | Public | Optional `forceRefresh` |
+| `GET` | `/api/indian-market/top-99-stocks/:period` | Public | `:period` is `daily`, `weekly`, or `monthly`; optional `forceRefresh=true` |
 | `GET` | `/api/market-news` | Public | None |
 | `GET` | `/api/market-news/global` | Public | None |
 | `GET` | `/api/mutual-funds` | Public | None |
 | `GET` | `/api/mutual-fund-data` | Public | None |
 | `GET` | `/api/mutual-fund-data/:schemeCode/history` | Public | None |
 | `GET` | `/api/mutual-fund-data/:schemeCode` | Public | None |
-| `POST` | `/api/mutual-fund-data/refresh` | User | Optional `schemeCodes` array or `schemeCode` |
-| `POST`, `GET` | `/api/stocks` | User | Add body for `POST`; none for portfolio `GET` |
+| `GET` | `/api/stocks?query=...` | Public | Indian NSE/BSE equity search; `region=IN`, `limit=1..25` |
+| `POST`, `GET` | `/api/stocks` | User | Add Indian-stock transaction for `POST`; omit `query` for portfolio `GET` |
 | `GET` | `/api/stocks/summary` | User | None |
 | `GET` | `/api/stocks/holdings` | User | None |
 | `GET` | `/api/stocks/net-worth` | User | Optional `period`; owner is always the JWT user |
