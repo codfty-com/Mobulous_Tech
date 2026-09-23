@@ -485,6 +485,17 @@ export const updateStockSchema = {
   },
 };
 
+export const lookupStockSchema = {
+  query(query) {
+    const symbol = typeof query.symbol === "string" ? query.symbol.trim().toUpperCase() : "";
+    const errors = [];
+    if (!symbol || symbol.length > 20 || !getIndianStockExchange(symbol)) {
+      errors.push("A valid Indian NSE (.NS) or BSE (.BO) stock symbol is required");
+    }
+    return buildResult(errors, { symbol });
+  },
+};
+
 export const getStocksQuerySchema = {
   query(query) {
     const errors = [];

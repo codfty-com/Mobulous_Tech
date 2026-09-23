@@ -41,6 +41,14 @@ try {
     return { status: response.status, body: await response.json() };
   };
   const payload = { symbol: "RELIANCE.NS", name: "Reliance Industries", quantity: 10, price: 100, transactionDate: "2026-01-01" };
+  assert.equal((await request("GET", "/lookup?symbol=RELIANCE.NS", undefined, "")).status, 401);
+  assert.equal((await request("GET", "/lookup?symbol=RELIANCE.NS&query=reliance", undefined, "")).status, 401);
+  for (const query of ["", "?symbol=AAPL", "?symbol=RELIANCE", "?symbol=x&symbol=y"]) {
+    assert.equal((await request("GET", `/lookup${query}`)).status, 400);
+  }
+  const absent = await request("GET", "/lookup?symbol=RELIANCE.NS");
+  assert.equal(absent.status, 200);
+  assert.deepEqual(absent.body.data, { symbol: "RELIANCE.NS", exists: false, stock: null, availableQuantity: 0, canBuy: true, canSell: false });
   assert.equal((await request("POST", "", payload, "")).status, 401);
   const first = await request("POST", "", { ...payload, watchlist: true, notes: "Keep this", alerts: { enabled: true, targetPrice: 300 }, userId: otherUserId });
   assert.equal(first.status, 201);
@@ -58,6 +66,12 @@ try {
   assert.equal(added.body.data.notes, "Keep this");
   assert.deepEqual(added.body.data.alerts, { enabled: true, targetPrice: 300, stopLoss: 80 });
   assert.equal(added.body.data.transactions.length, 2);
+  const selected = await request("GET", "/lookup?symbol=%20reliance.ns%20");
+  assert.equal(selected.body.data.stock._id, id);
+  assert.equal(selected.body.data.availableQuantity, 15);
+  assert.equal(selected.body.data.stock.totalInvestment, 1800);
+  assert.equal(selected.body.data.canSell, true);
+  assert.equal((await request("GET", "/lookup?symbol=RELIANCE.NS", undefined, otherToken)).body.data.exists, false);
   const listing = await request("GET", "");
   assert.equal(listing.body.pagination.total, 1);
   assert.equal(listing.body.data[0].quantity, 15);
@@ -122,6 +136,9 @@ try {
   const closed = await request("POST", "", { ...parallelPayload, quantity: 3, transactionType: "sell", transactionDate: "2026-01-03" });
   assert.equal(closed.body.data.quantity, 0);
   assert.equal(closed.body.data.purchasePrice, 0);
+  const closedLookup = await request("GET", "/lookup?symbol=TCS.NS");
+  assert.equal(closedLookup.body.data.exists, true);
+  assert.equal(closedLookup.body.data.canSell, false);
   const reopened = await request("POST", "", { ...parallelPayload, quantity: 2, price: 170, transactionDate: "2026-01-04" });
   assert.equal(reopened.status, 200);
   assert.equal(reopened.body.data._id, String(concurrentStock._id));
@@ -146,6 +163,11 @@ try {
     { quantity: 5, purchasePrice: 200, transactionType: "sell", transactionDate: new Date("2026-01-03"), symbol: "RELIANCE.NS" },
   ].map((trade) => ({ ...trade, _id: new mongoose.Types.ObjectId(), userId: new mongoose.Types.ObjectId(userId), name: "Reliance Industries", currentPrice: 200, currency: "INR", exchange: "NSE", createdAt: trade.transactionDate }));
   await UserStock.collection.insertMany(legacy);
+  const legacyLookup = await request("GET", "/lookup?symbol=RELIANCE.NS");
+  assert.equal(legacyLookup.body.data.availableQuantity, 10);
+  assert.equal(legacyLookup.body.data.stock.purchasePrice, 120);
+  assert.equal(legacyLookup.body.data.stock._id, String(legacy[0]._id));
+  assert.equal(await UserStock.countDocuments(), 3, "Selection must not write holdings");
   const preview = await migrateStockHoldings();
   assert.equal(preview.duplicateRowsToMerge, 2);
   assert.equal(await UserStock.countDocuments(), 3);

@@ -73,6 +73,40 @@ const getStockId = (req, res) => {
   return id;
 };
 
+// Read-only selection check; POST rechecks under a lock when saving a trade.
+export const lookupStock = async (req, res) => {
+  try {
+    const userId = getRequestUserId(req, res);
+    if (!userId) return null;
+    const { symbol } = queryFor(req);
+    const matches = await UserStock.find(stockSymbolFilter(userId, symbol))
+      .sort({ createdAt: 1, _id: 1 }).lean();
+    const transactions = matches.flatMap(stockTransactions);
+    const stock = matches.length
+      ? UserStock.hydrate({
+          ...matches[0], symbol, transactions, ...calculateHolding(transactions),
+        })
+      : null;
+    return sendSuccess(res, {
+      message: stock ? "Existing stock holding found" : "Stock has not been added",
+      data: {
+        symbol,
+        exists: Boolean(stock),
+        stock,
+        availableQuantity: stock?.quantity ?? 0,
+        canBuy: true,
+        canSell: (stock?.quantity ?? 0) > 0,
+      },
+      transactionOptions,
+    });
+  } catch (error) {
+    return sendError(res, {
+      statusCode: error.statusCode || 500,
+      message: error.statusCode ? error.message : "Failed to look up stock holding",
+    });
+  }
+};
+
 /**
  * Add a transaction to the user's unique stock holding (POST)
  * POST /api/stocks

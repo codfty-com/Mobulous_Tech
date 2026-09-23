@@ -1,5 +1,46 @@
 # Manual stock holdings
 
+## Client API flow: search, select, buy or sell
+
+1. Search: `GET /api/stocks?query=reliance` (public). Use the exact listing symbol returned by search, such as `RELIANCE.NS`; NSE and BSE listings are separate symbols.
+2. On selection: `GET /api/stocks/lookup?symbol=RELIANCE.NS` with `Authorization: Bearer <token>`. This is an exact, case-insensitive lookup scoped to the logged-in user, not a substring search. It never creates a holding.
+3. Submit a buy or sell: `POST /api/stocks` with the same token and the body below. Always use POST for an additional trade, including when lookup reports an existing stock.
+4. Refresh: `GET /api/stocks` for the full list, or `GET /api/stocks/holdings` for open positions. Refetching also removes retired duplicate IDs from older client state.
+
+Selection returns this `data` shape (inside the standard success response):
+
+```json
+{
+  "symbol": "RELIANCE.NS",
+  "exists": true,
+  "stock": { "_id": "<holding-id>", "symbol": "RELIANCE.NS", "quantity": 10, "purchasePrice": 100, "totalInvestment": 1000 },
+  "availableQuantity": 10,
+  "canBuy": true,
+  "canSell": true
+}
+```
+
+`stock` contains the full holding; the example shows selected fields. When absent, `exists` is false, `stock` is null, `availableQuantity` is 0 and `canSell` is false. A fully sold holding still exists but cannot be sold again until bought. Old duplicate records are combined for this preview without writing to the database. An invalid symbol returns 400; invalid legacy sell history returns 409. Selection is a preview: POST checks the latest balance again inside its transaction.
+
+Buy request:
+
+```json
+{
+  "symbol": "RELIANCE.NS",
+  "name": "Reliance Industries",
+  "quantity": 5,
+  "price": 160,
+  "currentPrice": 170,
+  "transactionType": "buy"
+}
+```
+
+Here `price` is the per-share execution price and `quantity` is the number of shares in this new trade, not the desired total. Starting with 10 shares at 100, this produces 15 shares, average cost 120, remaining investment 1800, current value 2550 and unrealized profit 750. Send `currentPrice` to value the holding at a separate market quote; otherwise the validator uses the trade price.
+
+For a sell, use the same endpoint with `transactionType: "sell"`, the quantity being sold and its execution price. Selling 5 shares from the above position leaves 10 shares at average cost 120 and remaining investment 1200. Selling more than the available quantity returns 409 with no change.
+
+POST returns 201 and `action: "created"` for the first buy; subsequent trades return 200 and `action: "updated"` with the same `data._id`. Replace the client item by this ID (or refetch); do not unconditionally append every successful response. Transaction history entries are individual trades, not separate stock list items. `PUT/PATCH /api/stocks/:id` corrects existing data and is not the API for an additional buy/sell.
+
 `POST /api/stocks` uses the verified JWT user and the trimmed, uppercase symbol as its identity. New symbols return HTTP 201 (`action: "created"`). Existing symbols return HTTP 200 (`action: "updated"`) with the same stock `_id` and an increased quantity for a buy or reduced quantity for a sell.
 
 Example request, with `Authorization: Bearer <token>`:
