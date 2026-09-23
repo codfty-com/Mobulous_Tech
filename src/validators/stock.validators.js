@@ -262,7 +262,7 @@ export const addStockSchema = {
     if (peRatio !== undefined) data.peRatio = peRatio;
     if (notes) data.notes = notes;
     if (tags) data.tags = tags;
-    data.watchlist = watchlist;
+    if (body.watchlist !== undefined) data.watchlist = watchlist;
 
     if (Object.keys(alerts).length > 0) {
       data.alerts = alerts;
@@ -276,6 +276,14 @@ export const updateStockSchema = {
   body(body) {
     const errors = [];
     const data = {};
+
+    if (body.transactionId !== undefined) {
+      if (typeof body.transactionId !== "string" || !/^[a-f\d]{24}$/i.test(body.transactionId)) {
+        errors.push("Transaction ID must be a valid stock transaction ID");
+      } else {
+        data.transactionId = body.transactionId;
+      }
+    }
 
     // All fields are optional for update
     if (body.symbol !== undefined) {
@@ -469,7 +477,7 @@ export const updateStockSchema = {
       }
     }
 
-    if (!Object.keys(data).length) {
+    if (!Object.keys(data).some((key) => key !== "transactionId")) {
       errors.push("At least one stock field is required");
     }
 

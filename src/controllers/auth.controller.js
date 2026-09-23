@@ -29,7 +29,7 @@ const clearAuthCookies = (res) => {
  */
 export const refreshToken = async (req, res) => {
   try {
-    const refreshToken = req.body.refreshToken?.trim();
+    const refreshToken = typeof req.body?.refreshToken === "string" ? req.body.refreshToken.trim() : "";
 
     if (!refreshToken) {
       return sendError(res, {
@@ -73,7 +73,7 @@ export const refreshToken = async (req, res) => {
  */
 export const revokeToken = async (req, res) => {
   try {
-    const refreshToken = req.body.refreshToken?.trim();
+    const refreshToken = typeof req.body?.refreshToken === "string" ? req.body.refreshToken.trim() : "";
 
     if (!refreshToken) {
       return sendError(res, {
@@ -82,6 +82,10 @@ export const revokeToken = async (req, res) => {
       });
     }
 
+    const decoded = verifyRefreshToken(refreshToken);
+    if (String(decoded.userId) !== String(req.user.userId)) {
+      return sendError(res, { statusCode: 403, message: "Refresh token does not belong to authenticated user" });
+    }
     const revoked = await revokeRefreshToken(refreshToken);
 
     if (!revoked) {
@@ -112,7 +116,7 @@ export const revokeToken = async (req, res) => {
 export const logout = async (req, res) => {
   try {
     const userId = req.user?.userId;
-    const refreshToken = req.body.refreshToken?.trim();
+    const refreshToken = typeof req.body?.refreshToken === "string" ? req.body.refreshToken.trim() : "";
     let refreshTokenRevoked = false;
 
     if (!userId) {
@@ -176,6 +180,7 @@ export const logoutAll = async (req, res) => {
       });
     }
 
+    await User.updateOne({ _id: userId }, { $inc: { tokenVersion: 1, ...(req.user.admin ? { adminTokenVersion: 1 } : {}) } });
     const revokedCount = await revokeAllUserTokens(userId);
 
     return sendSuccess(res, {
@@ -234,7 +239,7 @@ export const changePassword = async (req, res) => {
     }
 
     const user = await User.findById(userId).select(
-      "+adminResetHash +adminResetExpiry +adminResetAttempts",
+      "+adminResetHash +adminResetExpiry +adminResetAttempts +resetHash +resetExpiry +resetAttempts",
     );
 
     if (!user) {
@@ -264,18 +269,16 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    user.password = await bcrypt.hash(newPassword, 10);
-    user.otp = null;
-    user.otpExpiry = null;
-    user.lastLoginMethod = EMAIL_PASSWORD_METHOD;
-    if (user.admin) {
-      user.adminTokenVersion = (user.adminTokenVersion ?? 0) + 1;
-      user.adminResetHash = undefined;
-      user.adminResetExpiry = undefined;
-      user.adminResetAttempts = undefined;
-    }
+    const password = await bcrypt.hash(newPassword, 12);
+    const changed = await User.updateOne({ _id: userId, password: user.password, isDeleted: { $ne: true } }, {
+      $set: { password, otp: null, otpExpiry: null, lastLoginMethod: EMAIL_PASSWORD_METHOD },
+      $inc: { tokenVersion: 1, ...(user.admin ? { adminTokenVersion: 1 } : {}) },
+      $unset: { resetHash: "", resetExpiry: "", resetAttempts: "", ...(user.admin ? { adminResetHash: "", adminResetExpiry: "", adminResetAttempts: "" } : {}) },
+    });
+    if (!changed.modifiedCount) return sendError(res, { statusCode: 409, message: "Password changed during this request. Please sign in again." });
 
-    await user.save();
+    // The version check already rejects old access and refresh JWTs immediately.
+    await revokeAllUserTokens(userId).catch((error) => console.error("Refresh token cleanup failed:", error.message));
 
     return sendSuccess(res, {
       message: "Password changed successfully",

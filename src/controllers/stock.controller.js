@@ -1,7 +1,14 @@
 import UserStock from "../models/userStock.js";
-import { sendSuccess, sendError } from "../utils/http.js";
+import { AppError, sendSuccess, sendError } from "../utils/http.js";
 import mongoose from "mongoose";
 import { getStockNetWorthHistory } from "../services/stockNetWorth.service.js";
+import {
+  addStockTransaction,
+  stockTransactions,
+  calculateHolding,
+  stockSymbolFilter,
+  withStockSymbolLock,
+} from "../services/stockHolding.service.js";
 
 const bodyFor = (req) => req.validated?.body || req.body;
 const queryFor = (req) => req.validated?.query || req.query;
@@ -9,7 +16,9 @@ const validObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const transactionOptions = ["buy", "sell"];
 
 const getIndianStockExchange = (symbol) => {
-  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+  const normalizedSymbol = String(symbol || "")
+    .trim()
+    .toUpperCase();
 
   if (normalizedSymbol.endsWith(".NS")) return "NSE";
   if (normalizedSymbol.endsWith(".BO")) return "BSE";
@@ -55,7 +64,8 @@ const getStockId = (req, res) => {
   if (!validObjectId(id)) {
     sendError(res, {
       statusCode: 400,
-      message: "Invalid stock ID. Use the stock _id returned from GET /api/stocks.",
+      message:
+        "Invalid stock ID. Use the stock _id returned from GET /api/stocks.",
     });
     return null;
   }
@@ -63,37 +73,8 @@ const getStockId = (req, res) => {
   return id;
 };
 
-const sameStockIdentity = (left, right) =>
-  left.symbol === right.symbol;
-
-const validateLedgerChange = async ({ userId, existing, next, excludeId }) => {
-  const nextAvailable = await UserStock.getNetQuantity(userId, {
-    symbol: next.symbol,
-    exchange: next.exchange,
-    excludeId,
-  });
-  const nextQuantity = nextAvailable + (next.transactionType === "sell" ? -next.quantity : next.quantity);
-
-  if (nextQuantity < 0) {
-    return `Cannot sell ${next.quantity} shares of ${next.symbol}. Available quantity is ${Math.max(nextAvailable, 0)}.`;
-  }
-
-  if (existing && !sameStockIdentity(existing, next)) {
-    const originalRemaining = await UserStock.getNetQuantity(userId, {
-      symbol: existing.symbol,
-      exchange: existing.exchange,
-      excludeId,
-    });
-    if (originalRemaining < 0) {
-      return `This change would leave ${existing.symbol} with a negative quantity.`;
-    }
-  }
-
-  return null;
-};
-
 /**
- * Add a new stock (POST)
+ * Add a transaction to the user's unique stock holding (POST)
  * POST /api/stocks
  */
 export const addStock = async (req, res) => {
@@ -101,10 +82,10 @@ export const addStock = async (req, res) => {
     const userId = getRequestUserId(req, res);
 
     if (!userId) return null;
-    
+
     const stockData = {
-      userId,
       ...bodyFor(req),
+      userId,
       lastUpdated: new Date(),
     };
 
@@ -113,31 +94,38 @@ export const addStock = async (req, res) => {
       return sendError(res, { statusCode: 400, message: identityError });
     }
 
-    const ledgerError = await validateLedgerChange({ userId, next: stockData });
-    if (ledgerError) {
-      return sendError(res, { statusCode: 409, message: ledgerError });
-    }
-
-    const stock = new UserStock(stockData);
-    await stock.save();
+    const { stock, created } = await addStockTransaction(userId, stockData);
 
     return sendSuccess(res, {
-      statusCode: 201,
-      message: "Stock added successfully",
+      statusCode: created ? 201 : 200,
+      message: created
+        ? "Stock added successfully"
+        : "Stock quantity updated successfully",
       data: stock,
+      action: created ? "created" : "updated",
       transactionOptions,
     });
   } catch (error) {
+    if (error.statusCode) {
+      return sendError(res, {
+        statusCode: error.statusCode,
+        message: error.message,
+      });
+    }
     console.error("Add stock error:", error);
 
     // Handle duplicate stock error
     if (error.code === 11000) {
       return sendError(res, {
         statusCode: 409,
-        message: "A database uniqueness constraint blocked this stock transaction",
+        message:
+          "A database uniqueness constraint blocked this stock transaction",
         details: {
-          duplicateFields: Object.keys(error.keyPattern || error.keyValue || {}),
-          action: "Run npm run migrate:stock-indexes if the legacy userId/symbol index is still unique",
+          duplicateFields: Object.keys(
+            error.keyPattern || error.keyValue || {},
+          ),
+          action:
+            "Retry the request; this user and symbol must have only one stock record",
         },
       });
     }
@@ -196,7 +184,10 @@ export const getStocks = async (req, res) => {
     }
 
     if (transactionType) {
-      filter.transactionType = transactionType;
+      filter.$or = [
+        { "transactions.transactionType": transactionType },
+        { transactions: { $exists: false }, transactionType },
+      ];
     }
 
     if (watchlist !== undefined) {
@@ -298,6 +289,8 @@ export const updateStock = async (req, res) => {
     // Don't allow userId to be changed.
     const updateData = { ...bodyFor(req) };
     delete updateData.userId;
+    const { transactionId } = updateData;
+    delete updateData.transactionId;
     updateData.lastUpdated = new Date();
 
     // The request validator normalises a changed symbol to its matching
@@ -319,32 +312,60 @@ export const updateStock = async (req, res) => {
       }
     }
 
-    const nextStock = {
-      symbol: updateData.symbol ?? existingStock.symbol,
-      exchange: updateData.exchange ?? existingStock.exchange,
-      quantity: updateData.quantity ?? existingStock.quantity,
-      transactionType: updateData.transactionType ?? existingStock.transactionType,
-    };
-    const ledgerError = await validateLedgerChange({
-      userId,
-      existing: existingStock,
-      next: nextStock,
-      excludeId: id,
-    });
-    if (ledgerError) {
-      return sendError(res, { statusCode: 409, message: ledgerError });
+    const tradeFields = [
+      "quantity",
+      "purchasePrice",
+      "transactionType",
+      "transactionDate",
+      "purchaseDate",
+    ];
+    if (tradeFields.some((key) => updateData[key] !== undefined)) {
+      const transactions = stockTransactions(existingStock);
+      if (transactions.length > 1 && !transactionId) {
+        return sendError(res, {
+          statusCode: 409,
+          message:
+            "Provide transactionId to edit an existing transaction, or use POST /api/stocks to add a buy or sell.",
+        });
+      }
+      const index = transactionId
+        ? transactions.findIndex((trade) => String(trade._id) === transactionId)
+        : 0;
+      if (index < 0)
+        return sendError(res, {
+          statusCode: 404,
+          message: "Stock transaction not found",
+        });
+      const transaction = { ...transactions[index] };
+      for (const key of tradeFields.filter((key) => key !== "purchaseDate")) {
+        if (updateData[key] !== undefined) transaction[key] = updateData[key];
+      }
+      if (updateData.purchaseDate && !updateData.transactionDate)
+        transaction.transactionDate = updateData.purchaseDate;
+      transactions[index] = transaction;
+      updateData.transactions = transactions;
+      Object.assign(updateData, calculateHolding(updateData.transactions));
     }
 
-    const stock = await UserStock.findOneAndUpdate(
-      { _id: id, userId },
-      { $set: updateData },
-      { new: true, runValidators: true }
+    const saveUpdate = (session) => UserStock.findOneAndUpdate(
+      { _id: id, userId, __v: existingStock.__v ?? { $exists: false } },
+      { $set: updateData, $inc: { __v: 1 } },
+      { returnDocument: "after", runValidators: true, ...(session ? { session } : {}) },
     );
+    const stock = updateData.symbol && updateData.symbol !== existingStock.symbol
+      ? await withStockSymbolLock(userId, updateData.symbol, async (session) => {
+          const duplicate = await UserStock.exists({
+            ...stockSymbolFilter(userId, updateData.symbol), _id: { $ne: id },
+          }).session(session);
+          if (duplicate) throw new AppError("This symbol already exists in your stocks. Use POST /api/stocks to add quantity.", 409);
+          return saveUpdate(session);
+        })
+      : await saveUpdate();
 
     if (!stock) {
       return sendError(res, {
-        statusCode: 404,
-        message: "Stock not found",
+        statusCode: 409,
+        message: "Stock changed during this request. Please retry.",
       });
     }
 
@@ -354,16 +375,23 @@ export const updateStock = async (req, res) => {
       transactionOptions,
     });
   } catch (error) {
-    console.error("Update stock error:", error);
-
+    if (error.statusCode) {
+      return sendError(res, {
+        statusCode: error.statusCode,
+        message: error.message,
+      });
+    }
     // Handle duplicate stock error
     if (error.code === 11000) {
       return sendError(res, {
         statusCode: 409,
-        message: "A database uniqueness constraint blocked this stock transaction",
+        message:
+          "This symbol already exists in your stocks. Use POST /api/stocks to add quantity.",
         details: {
-          duplicateFields: Object.keys(error.keyPattern || error.keyValue || {}),
-          action: "Run npm run migrate:stock-indexes if the legacy userId/symbol index is still unique",
+          duplicateFields: Object.keys(
+            error.keyPattern || error.keyValue || {},
+          ),
+          action: "Use POST /api/stocks to add quantity to an existing symbol",
         },
       });
     }
@@ -376,6 +404,7 @@ export const updateStock = async (req, res) => {
       });
     }
 
+    console.error("Update stock error:", error);
     return sendError(res, {
       statusCode: 500,
       message: "Failed to update stock",
@@ -400,7 +429,10 @@ export const deleteStock = async (req, res) => {
       return sendError(res, { statusCode: 404, message: "Stock not found" });
     }
 
-    if (existingStock.transactionType === "buy") {
+    if (
+      !existingStock.transactions?.length &&
+      existingStock.transactionType === "buy"
+    ) {
       const remainingQuantity = await UserStock.getNetQuantity(userId, {
         symbol: existingStock.symbol,
         exchange: existingStock.exchange,
@@ -409,17 +441,22 @@ export const deleteStock = async (req, res) => {
       if (remainingQuantity < 0) {
         return sendError(res, {
           statusCode: 409,
-          message: "Cannot delete this buy transaction because later sell transactions depend on it",
+          message:
+            "Cannot delete this buy transaction because later sell transactions depend on it",
         });
       }
     }
 
-    const stock = await UserStock.findOneAndDelete({ _id: id, userId });
+    const stock = await UserStock.findOneAndDelete({
+      _id: id,
+      userId,
+      __v: existingStock.__v ?? { $exists: false },
+    });
 
     if (!stock) {
       return sendError(res, {
-        statusCode: 404,
-        message: "Stock not found",
+        statusCode: 409,
+        message: "Stock changed during this request. Please retry.",
       });
     }
 
@@ -482,14 +519,24 @@ export const getStockNetWorth = async (req, res) => {
       period === "all"
         ? Promise.resolve([])
         : UserStock.find({ userId })
-            .select("symbol quantity purchasePrice transactionType transactionDate")
+            .select(
+              "symbol quantity purchasePrice transactionType transactionDate transactions",
+            )
             .lean(),
     ]);
 
     const history =
       period === "all"
         ? null
-        : await getStockNetWorthHistory({ transactions, period });
+        : await getStockNetWorthHistory({
+            transactions: transactions.flatMap((stock) =>
+              stockTransactions(stock).map((trade) => ({
+                ...trade,
+                symbol: stock.symbol,
+              })),
+            ),
+            period,
+          });
 
     const performance = history
       ? history.performance
@@ -577,7 +624,12 @@ export const getWatchlist = async (req, res) => {
 
     if (!userId) return null;
 
-    const { page = 1, limit = 20, sortBy = "lastUpdated", sortOrder = "desc" } = queryFor(req);
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = "lastUpdated",
+      sortOrder = "desc",
+    } = queryFor(req);
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const sortOptions = {};
@@ -680,11 +732,11 @@ export const toggleWatchlist = async (req, res) => {
 
     const stock = await UserStock.findOneAndUpdate(
       { _id: id, userId },
-      { 
+      {
         watchlist: Boolean(watchlist),
         lastUpdated: new Date(),
       },
-      { new: true }
+      { new: true },
     );
 
     if (!stock) {
@@ -695,7 +747,7 @@ export const toggleWatchlist = async (req, res) => {
     }
 
     return sendSuccess(res, {
-      message: `Stock ${stock.watchlist ? 'added to' : 'removed from'} watchlist`,
+      message: `Stock ${stock.watchlist ? "added to" : "removed from"} watchlist`,
       data: {
         id: stock._id,
         symbol: stock.symbol,
@@ -726,21 +778,21 @@ export const setAlerts = async (req, res) => {
     const updateData = { lastUpdated: new Date() };
 
     if (enabled !== undefined) {
-      updateData['alerts.enabled'] = enabled;
+      updateData["alerts.enabled"] = enabled;
     }
 
     if (targetPrice !== undefined) {
-      updateData['alerts.targetPrice'] = targetPrice;
+      updateData["alerts.targetPrice"] = targetPrice;
     }
 
     if (stopLoss !== undefined) {
-      updateData['alerts.stopLoss'] = stopLoss;
+      updateData["alerts.stopLoss"] = stopLoss;
     }
 
     const stock = await UserStock.findOneAndUpdate(
       { _id: id, userId },
       { $set: updateData },
-      { new: true }
+      { new: true },
     );
 
     if (!stock) {

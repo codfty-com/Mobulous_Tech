@@ -8,7 +8,7 @@
     "node": "24.x"
   },
   "scripts": {
-    "test": "npm run build && npm run test:routes && npm run test:route-auth && npm run test:admin-users && npm run test:indian-stock-market && npm run test:auth && npm run test:admin-auth && npm run test:assets && npm run test:portfolio && npm run test:stocks",
+    "test": "npm run build && npm run test:routes && npm run test:route-auth && npm run test:admin-users && npm run test:indian-stock-market && npm run test:auth && npm run test:admin-auth && npm run test:user-auth && npm run test:assets && npm run test:portfolio && npm run test:stocks",
     "dev": "nodemon server.js",
     "start": "node server.js",
     "build": "node scripts/check-syntax.js",
@@ -17,11 +17,12 @@
     "test:admin-users": "node scripts/check-admin-users.js",
     "test:indian-stock-market": "node scripts/check-indian-stock-market.js",
     "test:auth": "node scripts/check-auth.js",
+    "test:user-auth": "node scripts/check-user-auth.js",
     "test:admin-auth": "node scripts/check-admin-auth.js",
     "seed:admin": "node scripts/seed-admin.js",
     "test:assets": "node scripts/check-assets.js",
     "test:portfolio": "node scripts/check-portfolio.js",
-    "test:stocks": "node scripts/check-stocks.js",
+    "test:stocks": "node scripts/check-stocks.js && node scripts/check-stock-holdings.js",
     "migrate:stock-indexes": "node scripts/migrate-stock-transaction-indexes.js",
     "seed:assets": "node scripts/seed-assets.js"
   },
@@ -52,6 +53,7 @@
     "yahoo-finance2": "^3.15.4"
   },
   "devDependencies": {
+    "mongodb-memory-server-core": "^11.3.0",
     "nodemon": "^3.1.14",
     "webpack": "^5.106.2",
     "webpack-cli": "^7.0.2"

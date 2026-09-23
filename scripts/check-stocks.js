@@ -1,6 +1,8 @@
 import UserStock from "../src/models/userStock.js";
+import assert from "node:assert/strict";
+import { calculateHolding } from "../src/services/stockHolding.service.js";
 import axios from "axios";
-import { addStock, getStockNetWorth, setAlerts } from "../src/controllers/stock.controller.js";
+import { getStockNetWorth, setAlerts } from "../src/controllers/stock.controller.js";
 import { getStockNetWorthHistory } from "../src/services/stockNetWorth.service.js";
 import {
   addStockSchema,
@@ -9,6 +11,11 @@ import {
 } from "../src/validators/stock.validators.js";
 
 const userId = "000000000000000000000001";
+const trade = (quantity, transactionType, purchasePrice = 100) => ({ quantity, transactionType, purchasePrice, transactionDate: new Date("2026-01-01") });
+assert.equal(calculateHolding([trade(0.1, "buy"), trade(0.2, "buy"), trade(0.3, "sell")]).quantity, 0);
+assert.throws(() => calculateHolding([trade(1e-11, "sell")]), /Cannot sell/);
+assert.equal(calculateHolding([trade(1e-11, "buy"), trade(5e-12, "sell")]).quantity, 5e-12);
+assert.equal(calculateHolding([trade(10, "buy", 0), trade(10, "buy", 100)]).purchasePrice, 50);
 const makeResponse = () => ({
   statusCode: 0,
   body: null,
@@ -129,35 +136,6 @@ if (
   throw new Error("Sell transaction output fields are incorrect");
 }
 
-UserStock.getNetQuantity = async () => 3;
-const rejectedResponse = makeResponse();
-await addStock(
-  { user: { userId }, validated: { body: sell.data } },
-  rejectedResponse,
-);
-if (rejectedResponse.statusCode !== 409) {
-  throw new Error("Overselling was not rejected");
-}
-
-UserStock.getNetQuantity = async () => 10;
-const originalSave = UserStock.prototype.save;
-UserStock.prototype.save = async function () { return this; };
-const acceptedResponse = makeResponse();
-await addStock(
-  { user: { userId }, validated: { body: sell.data } },
-  acceptedResponse,
-);
-UserStock.prototype.save = originalSave;
-
-if (
-  acceptedResponse.statusCode !== 201 ||
-  acceptedResponse.body.data.transactionType !== "sell" ||
-  !acceptedResponse.body.transactionOptions.includes("buy") ||
-  !acceptedResponse.body.transactionOptions.includes("sell")
-) {
-  throw new Error("Valid sell response is incorrect");
-}
-
 const originalFindOneAndUpdate = UserStock.findOneAndUpdate;
 let capturedAlertUpdate;
 UserStock.findOneAndUpdate = async (filter, update) => {
@@ -220,4 +198,4 @@ if (
   throw new Error("Stock net-worth endpoint did not remain scoped to the JWT user");
 }
 
-console.log("Stock buy/sell validation, output, and oversell checks passed.");
+console.log("Stock validation, output, alerts, and net-worth unit checks passed.");

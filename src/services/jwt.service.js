@@ -20,6 +20,7 @@ export const generateAccessToken = (payload) => {
     name: payload.name,
     admin: payload.admin || false,
     type: "access",
+    tokenVersion: payload.tokenVersion ?? 0,
     ...(payload.admin ? { adminTokenVersion: payload.adminTokenVersion ?? 0 } : {}),
   };
 
@@ -49,6 +50,7 @@ export const generateRefreshToken = (payload) => {
     name: payload.name,
     admin: payload.admin || false,
     type: "refresh",
+    tokenVersion: payload.tokenVersion ?? 0,
     ...(payload.admin ? { adminTokenVersion: payload.adminTokenVersion ?? 0 } : {}),
     jti, // JWT ID for token tracking
   };
@@ -239,6 +241,7 @@ export const generateTokenPair = async (user, deviceInfo = {}) => {
     name: user.name,
     admin: user.admin || false,
     adminTokenVersion: user.adminTokenVersion ?? 0,
+    tokenVersion: user.tokenVersion ?? 0,
   };
 
   const accessToken = generateAccessToken(payload);
@@ -281,6 +284,7 @@ export const refreshAccessToken = async (refreshToken, deviceInfo = {}) => {
     name: decoded.name,
     admin: decoded.admin || false,
     adminTokenVersion: decoded.adminTokenVersion,
+    tokenVersion: decoded.tokenVersion ?? 0,
   });
 
   // Optionally: Generate new refresh token (refresh token rotation)
@@ -335,7 +339,14 @@ export const cleanupExpiredTokens = async () => {
 // Re-check privileged sessions against MongoDB so removed roles, deleted admins,
 // legacy static tokens and sessions issued before a password reset cannot be used.
 export const validateAdminSession = async (payload) => {
-  if (!payload.admin) return;
+  if (!payload.admin) {
+    if (!/^[a-f\d]{24}$/i.test(String(payload.userId))) throw new Error("User token is invalid");
+    const user = await User.findOne({ _id: payload.userId, isDeleted: { $ne: true }, isEmailVerified: true });
+    if (!user || (user.tokenVersion ?? 0) !== (payload.tokenVersion ?? 0)) {
+      throw new Error("User token is invalid or has been revoked. Please log in again.");
+    }
+    return;
+  }
   if (!/^[a-f\d]{24}$/i.test(String(payload.userId)) || !Number.isInteger(payload.adminTokenVersion)) {
     throw new Error("Admin token is invalid. Please log in again.");
   }

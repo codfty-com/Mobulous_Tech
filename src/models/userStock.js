@@ -1,5 +1,29 @@
 import mongoose from "mongoose";
 
+const transactionSchema = new mongoose.Schema({
+  quantity: { type: Number, required: true, min: Number.MIN_VALUE },
+  purchasePrice: { type: Number, required: true, min: 0 },
+  transactionType: { type: String, enum: ["buy", "sell"], required: true },
+  transactionDate: { type: Date, required: true },
+});
+
+// Existing portfolio calculations operate on trades, never on the summed
+// holding as though it were one purchase on the most recent date.
+const ledgerStages = () => [
+  { $set: { ledger: { $cond: [
+    { $gt: [{ $size: { $ifNull: ["$transactions", []] } }, 0] },
+    "$transactions",
+    [{ quantity: "$quantity", purchasePrice: "$purchasePrice", transactionType: "$transactionType", transactionDate: "$transactionDate" }],
+  ] } } },
+  { $unwind: "$ledger" },
+  { $set: {
+    quantity: "$ledger.quantity",
+    purchasePrice: "$ledger.purchasePrice",
+    transactionType: "$ledger.transactionType",
+    transactionDate: "$ledger.transactionDate",
+  } },
+];
+
 const userStockSchema = new mongoose.Schema(
   {
     userId: {
@@ -28,7 +52,7 @@ const userStockSchema = new mongoose.Schema(
     quantity: {
       type: Number,
       required: true,
-      min: [Number.MIN_VALUE, "Quantity must be greater than zero"],
+      min: [0, "Quantity cannot be negative"],
       default: 1,
     },
     purchasePrice: {
@@ -69,6 +93,7 @@ const userStockSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    transactions: { type: [transactionSchema], default: undefined },
     marketCap: {
       type: String,
       enum: ["Large Cap", "Mid Cap", "Small Cap", "Micro Cap", ""],
@@ -120,7 +145,7 @@ const userStockSchema = new mongoose.Schema(
 );
 
 // Compound indexes for efficient queries
-userStockSchema.index({ userId: 1, symbol: 1 });
+userStockSchema.index({ userId: 1, symbol: 1 }, { unique: true });
 userStockSchema.index({ userId: 1, symbol: 1, transactionDate: 1 });
 userStockSchema.index({ userId: 1, transactionType: 1, transactionDate: -1 });
 userStockSchema.index({ userId: 1, watchlist: 1 });
@@ -140,8 +165,9 @@ userStockSchema.virtual("totalValue").get(function () {
   return this.totalInvestment;
 });
 
-// Signed fields make each record usable as a transaction ledger entry.
+// Consolidated documents expose net shares; legacy rows retain their sign.
 userStockSchema.virtual("signedQuantity").get(function () {
+  if (this.transactions?.length) return this.quantity;
   return (this.transactionType === "sell" ? -1 : 1) * this.quantity;
 });
 
@@ -185,6 +211,7 @@ userStockSchema.virtual("profitLossPercentage").get(function () {
 userStockSchema.statics.getUserPortfolioValue = async function (userId) {
   const pipeline = [
     { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    ...ledgerStages(),
     { $sort: { transactionDate: 1, createdAt: 1 } },
     {
       $group: {
@@ -269,6 +296,7 @@ userStockSchema.statics.getUserPortfolioValue = async function (userId) {
 userStockSchema.statics.getStocksBySector = async function (userId) {
   const pipeline = [
     { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    ...ledgerStages(),
     { $sort: { transactionDate: 1, createdAt: 1 } },
     {
       $group: {
@@ -341,6 +369,7 @@ userStockSchema.statics.getNetQuantity = async function (
 
   const result = await this.aggregate([
     { $match: match },
+    ...ledgerStages(),
     {
       $group: {
         _id: null,
@@ -362,6 +391,7 @@ userStockSchema.statics.getNetQuantity = async function (
 userStockSchema.statics.getUserHoldings = async function (userId) {
   return this.aggregate([
     { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+    ...ledgerStages(),
     { $sort: { transactionDate: 1, createdAt: 1 } },
     {
       $group: {

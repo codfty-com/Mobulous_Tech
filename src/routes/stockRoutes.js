@@ -40,7 +40,7 @@ router.use("/stocks", (req, res, next) => {
 
 /**
  * @route   POST /api/stocks
- * @desc    Add a new stock to user's collection
+ * @desc    Create a stock or add a buy/sell to the user's existing symbol
  * @access  Private (JWT required)
  */
 router.post("/stocks", validateRequest(addStockSchema), addStock);
@@ -107,7 +107,7 @@ router.get("/stocks/:id", getStockById);
 
 /**
  * @route   PUT /api/stocks/:id
- * @desc    Update a stock (complete replacement)
+ * @desc    Update stock metadata or correct a transaction using transactionId
  * @access  Private (JWT required)
  */
 router.put("/stocks/:id", validateRequest(updateStockSchema), updateStock);

@@ -45,9 +45,8 @@ export const MARKET_COLLECTION_TYPES = {
   trending: "trending_symbols",
   movers: "market_movers",
   topShares: "top_share_markets",
-  // The versioned cache key prevents an old, region-only search cache from
-  // serving non-Indian instruments after the Indian-equity restriction.
-  stockSearch: "indian_stock_search_v2",
+  // Invalidate search results cached before keyword and fund filtering.
+  stockSearch: "indian_stock_search_v3",
 };
 export const DEFAULT_STOCK_SEARCH_COUNT = 10;
 export const MAX_STOCK_SEARCH_COUNT = 25;
@@ -642,18 +641,26 @@ const buildCollectionResponse = (collection, source, warning) => ({
   data: collection.data || [],
 });
 
-const buildStockSearchResponse = ({ collection, source, query, warning }) => ({
-  source,
-  region: collection.region,
-  lang: collection.lang,
-  query,
-  total: collection.itemCount || 0,
-  count: Array.isArray(collection.data) ? collection.data.length : 0,
-  limit: collection.requestedCount,
-  ...(warning ? { warning } : {}),
-  meta: collection.meta || {},
-  data: collection.data || [],
-});
+const buildStockSearchResponse = ({ collection, source, query, warning }) => {
+  // Enforce the same contract for provider, fresh-cache and stale-cache data.
+  const data = (Array.isArray(collection.data) ? collection.data : [])
+    .filter((item) => isMatchingIndianStock(item, query))
+    .slice(0, collection.requestedCount)
+    .map((item, index) => ({ ...item, rank: index + 1 }));
+
+  return {
+    source,
+    region: collection.region,
+    lang: collection.lang,
+    query,
+    total: data.length,
+    count: data.length,
+    limit: collection.requestedCount,
+    ...(warning ? { warning } : {}),
+    meta: collection.meta || {},
+    data,
+  };
+};
 
 const normalizeStockSearchItem = ({ quote, detailQuote, rank, region }) => {
   const symbol = detailQuote?.symbol || quote.symbol || null;
@@ -712,17 +719,42 @@ const normalizeStockSearchItem = ({ quote, detailQuote, rank, region }) => {
   };
 };
 
-const isStockQuote = (quote) =>
-  String(quote?.quoteType || "")
-    .trim()
-    .toUpperCase() === "EQUITY";
+const getSearchNames = (quote) => [
+  quote?.displayName,
+  quote?.shortName,
+  quote?.shortname,
+  quote?.longName,
+  quote?.longname,
+];
+
+const isStockQuote = (quote) => {
+  if (
+    String(quote?.quoteType || "")
+      .trim()
+      .toUpperCase() !== "EQUITY"
+  ) {
+    return false;
+  }
+
+  // Yahoo sometimes labels Indian ETFs as EQUITY (for example GOLDBEES).
+  // Check explicit fund names and common ETF symbol suffixes as well.
+  const fundName =
+    /\b(?:ETF|ETN|mutual\s+fund|index\s+fund|exchange[\s-]+traded\s+(?:fund|note))s?\b/i;
+  const symbolRoot = String(quote?.symbol || "").replace(/\.(NS|BO)$/i, "");
+  return (
+    !getSearchNames(quote).some((name) => fundName.test(name || "")) &&
+    !/(?:ETF|BEES)$/i.test(symbolRoot)
+  );
+};
 
 // Yahoo's `region=IN` is a presentation hint, not an exchange filter. It can
 // still return overseas equities, ADRs, funds, and indices. Yahoo identifies
 // Indian cash-equity listings with the NSE/BSE suffixes below, so require both
 // the equity type and a recognised Indian listing symbol.
 export const getIndianStockExchangeFromSymbol = (symbol) => {
-  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+  const normalizedSymbol = String(symbol || "")
+    .trim()
+    .toUpperCase();
 
   if (normalizedSymbol.endsWith(".NS")) return "NSE";
   if (normalizedSymbol.endsWith(".BO")) return "BSE";
@@ -731,13 +763,31 @@ export const getIndianStockExchangeFromSymbol = (symbol) => {
 };
 
 const isIndianStockQuote = (quote) =>
-  isStockQuote(quote) && Boolean(getIndianStockExchangeFromSymbol(quote?.symbol));
+  isStockQuote(quote) &&
+  Boolean(getIndianStockExchangeFromSymbol(quote?.symbol));
 
 const normalizeSearchText = (value) =>
   String(value || "")
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
+
+const matchesStockSearch = (quote, query) => {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return false;
+
+  const symbol = String(quote?.symbol || "");
+  const searchableSymbol = /\.(NS|BO)$/i.test(query)
+    ? symbol
+    : symbol.replace(/\.(NS|BO)$/i, "");
+  return [searchableSymbol, ...getSearchNames(quote)].some((value) =>
+    normalizeSearchText(value).includes(normalizedQuery),
+  );
+};
+
+const isMatchingIndianStock = (item, query) =>
+  isIndianStockQuote({ ...item, quoteType: item.type }) &&
+  matchesStockSearch(item, query);
 
 const getSupplementalIndianSearchQuotes = ({
   query,
@@ -776,7 +826,9 @@ const fetchStockSearchFromYahoo = async ({ query, region, count, lang }) => {
     { validateResult: false },
   );
   const quotes = Array.isArray(result?.quotes) ? result.quotes : [];
-  const providerSearchQuotes = quotes.filter(isIndianStockQuote);
+  const providerSearchQuotes = quotes.filter(
+    (quote) => isIndianStockQuote(quote) && matchesStockSearch(quote, query),
+  );
   const existingSymbols = new Set(
     providerSearchQuotes.map((quote) => quote.symbol).filter(Boolean),
   );
@@ -785,10 +837,8 @@ const fetchStockSearchFromYahoo = async ({ query, region, count, lang }) => {
     region,
     existingSymbols,
   });
-  const searchQuotes = [...supplementalQuotes, ...providerSearchQuotes].slice(
-    0,
-    count,
-  );
+  // Apply the limit after enrichment, which may identify additional funds.
+  const searchQuotes = [...supplementalQuotes, ...providerSearchQuotes];
   const symbols = searchQuotes.map((quote) => quote.symbol).filter(Boolean);
   let quoteMap = {};
   let quoteFailedSymbols = [];
@@ -817,14 +867,17 @@ const fetchStockSearchFromYahoo = async ({ query, region, count, lang }) => {
     }
   }
 
-  const data = searchQuotes.map((quote, index) =>
+  const data = searchQuotes
+    .map((quote) =>
       normalizeStockSearchItem({
         quote,
         detailQuote: quoteMap[quote.symbol],
-        rank: index + 1,
         region,
       }),
-    );
+    )
+    .filter((item) => isMatchingIndianStock(item, query))
+    .slice(0, count)
+    .map((item, index) => ({ ...item, rank: index + 1 }));
 
   return {
     meta: {
@@ -1641,7 +1694,9 @@ const fetchIndianMarketMoversFromYahoo = async ({ moverType, list }) => {
   } catch (error) {
     // A partial response is still useful if Yahoo rejects a large batch.
     const results = await Promise.allSettled(
-      TOP_SHARE_MARKET_SYMBOLS.map((symbol) => fetchDetailedQuoteBySymbol(symbol)),
+      TOP_SHARE_MARKET_SYMBOLS.map((symbol) =>
+        fetchDetailedQuoteBySymbol(symbol),
+      ),
     );
 
     quoteMap = results.reduce((items, result, index) => {
@@ -1654,7 +1709,11 @@ const fetchIndianMarketMoversFromYahoo = async ({ moverType, list }) => {
   }
 
   const quotes = TOP_SHARE_MARKET_SYMBOLS.map((symbol) => quoteMap[symbol])
-    .filter((quote) => String(quote?.symbol || "").toUpperCase().endsWith(".NS"))
+    .filter((quote) =>
+      String(quote?.symbol || "")
+        .toUpperCase()
+        .endsWith(".NS"),
+    )
     .filter((quote) => Number.isFinite(quote?.regularMarketChangePercent));
   const direction = moverType === "gainers" ? -1 : 1;
   const sortedQuotes = quotes.sort(
@@ -1685,19 +1744,17 @@ const fetchIndianMarketMoversFromYahoo = async ({ moverType, list }) => {
       rankedBy: "regularMarketChangePercent",
       sortOrder: moverType === "gainers" ? "DESC" : "ASC",
     },
-    data: sortedQuotes
-      .slice(0, INDIAN_MARKET_MOVER_COUNT)
-      .map((quote, index) =>
-        normalizeScreenerItem({
-          // Yahoo may label a quote response with its default US region even
-          // though the symbol and exchange are NSE. The endpoint's region is
-          // intentionally fixed to India.
-          quote: { ...quote, region: "IN" },
-          rank: index + 1,
-          region: "IN",
-          listId: list.id,
-        }),
-      ),
+    data: sortedQuotes.slice(0, INDIAN_MARKET_MOVER_COUNT).map((quote, index) =>
+      normalizeScreenerItem({
+        // Yahoo may label a quote response with its default US region even
+        // though the symbol and exchange are NSE. The endpoint's region is
+        // intentionally fixed to India.
+        quote: { ...quote, region: "IN" },
+        rank: index + 1,
+        region: "IN",
+        listId: list.id,
+      }),
+    ),
   };
 };
 
@@ -1776,7 +1833,9 @@ export const getIndianMarketMoverDetail = async ({
   symbol,
   forceRefresh = false,
 } = {}) => {
-  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+  const normalizedSymbol = String(symbol || "")
+    .trim()
+    .toUpperCase();
 
   if (!normalizedSymbol) {
     const error = new Error("An NSE stock symbol is required");
@@ -1802,7 +1861,8 @@ export const getIndianMarketMoverDetail = async ({
     error.details = {
       symbol: normalizedSymbol,
       list: movers.list.id,
-      message: "Use a symbol returned by the corresponding top-gainers or top-losers endpoint.",
+      message:
+        "Use a symbol returned by the corresponding top-gainers or top-losers endpoint.",
     };
     throw error;
   }

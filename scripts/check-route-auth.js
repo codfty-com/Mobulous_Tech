@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { env } from "../src/config/env.js";
 import { generateAccessToken } from "../src/services/jwt.service.js";
+import User from "../src/models/user.js";
 import assetsRoutes from "../src/routes/assetsRoutes.js";
 import authRoutes from "../src/routes/authRoutes.js";
 import docsRoutes from "../src/routes/docsRoutes.js";
@@ -34,6 +35,8 @@ const requestRouter = (router, method, url, authorization = "") =>
   });
 
 const authConfig = { skip: env.skipJwtAuthForTesting, secret: env.jwtSecret };
+const originalFindUser = User.findOne;
+User.findOne = async () => ({ tokenVersion: 0, isEmailVerified: true });
 env.skipJwtAuthForTesting = false;
 env.jwtSecret = "route-auth-test-secret";
 
@@ -74,6 +77,7 @@ try {
   assert.equal(response.statusCode, 403, "Admin routes must reject non-admin users");
   assert.equal(response.body.success, false);
 } finally {
+  User.findOne = originalFindUser;
   env.skipJwtAuthForTesting = authConfig.skip;
   env.jwtSecret = authConfig.secret;
 }
