@@ -15,6 +15,8 @@ const setSignupOtp = (user) => {
 
   user.otp = otpHash;
   user.otpExpiry = otpExpiry;
+  user.signupOtpAttempts = 0;
+  user.signupOtpSentAt = new Date();
 
   return otp;
 };
@@ -33,6 +35,7 @@ const sendSignupOtpEmail = async (email, otp) => {
     return { sent: true };
   } catch (error) {
     console.error("Signup OTP email failed:", error.message);
+    await User.updateOne({ email, isEmailVerified: false }, { $unset: { signupOtpSentAt: "" } }).catch(() => {});
 
     return {
       sent: false,
@@ -98,6 +101,9 @@ export const createUser = async (req, res) => {
       }
 
       if (!existingUser.isEmailVerified) {
+        if (existingUser.signupOtpSentAt && Date.now() - new Date(existingUser.signupOtpSentAt).getTime() < 60_000) {
+          return res.status(429).json({ success: false, message: "Please wait one minute before requesting another verification code." });
+        }
         existingUser.name = name;
         existingUser.phone = phone;
         existingUser.password = await bcrypt.hash(password, 10);
@@ -172,7 +178,7 @@ export const verifySignupOtp = async (req, res) => {
 
     const user = await User.findOne({ email });
 
-    if (!user) {
+    if (!user || user.isDeleted) {
       return res.status(400).json({
         success: false,
         message: "User not found",
@@ -187,10 +193,15 @@ export const verifySignupOtp = async (req, res) => {
       );
     }
 
-    if (!matchesOtp(user.otp, otp)) {
+    const challenge = await User.findOneAndUpdate({
+      _id: user._id, isEmailVerified: false, isDeleted: { $ne: true }, otpExpiry: { $gt: new Date() },
+      $or: [{ signupOtpAttempts: { $lt: 5 } }, { signupOtpAttempts: { $exists: false } }],
+    }, { $inc: { signupOtpAttempts: 1 } }, { returnDocument: "after" });
+
+    if (!challenge || !matchesOtp(challenge.otp, otp)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid OTP",
+        message: "Invalid or expired OTP. Request a new code if attempts are exhausted.",
       });
     }
 
@@ -201,11 +212,9 @@ export const verifySignupOtp = async (req, res) => {
       });
     }
 
-    user.isEmailVerified = true;
-    user.otp = null;
-    user.otpExpiry = null;
-
-    await user.save();
+    const verified = await User.updateOne({ _id: user._id, otp: challenge.otp, otpExpiry: { $gt: new Date() }, isEmailVerified: false },
+      { $set: { isEmailVerified: true, otp: null, otpExpiry: null } });
+    if (!verified.modifiedCount) return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
 
     return sendSignupOtpSuccess(
       req,

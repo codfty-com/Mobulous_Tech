@@ -57,6 +57,10 @@ export const authenticateRequest = async (req, res, next) => {
 
     return next();
   } catch (error) {
+    // A database outage is retryable and must not be reported as invalid credentials.
+    if (!/expired|invalid|revoked/i.test(error.message)) {
+      return sendError(res, { statusCode: 503, message: "Authentication service is temporarily unavailable" });
+    }
     // Handle specific token errors
     const message = error.message.includes("expired")
       ? "Access token has expired. Please refresh your token."

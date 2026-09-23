@@ -481,14 +481,20 @@ No endpoint is currently configured for these areas:
 ```
 
 - Required fields: `symbol`, `name`, `quantity`, and either `price` or `purchasePrice`.
+- One stock document is stored per authenticated user and normalized symbol. `reliance.ns` and ` RELIANCE.NS ` match the same stock; different users have separate holdings.
+- A first purchase returns `201`, `action: "created"`. Another purchase returns `200`, `action: "updated"`, the same `data._id`, and the combined `data.quantity`. For example, 10 shares at 100 plus 5 at 160 gives 15 shares at an average `purchasePrice` of 120.
+- `data.transactions` retains each buy/sell, its `_id`, price, quantity, and date. `data.quantity` is the current net holding; `data.purchasePrice` is the weighted average cost of the remaining shares. A sell reduces the holding at its average cost; selling everything retains the stock with quantity zero so a later purchase reuses its `_id`.
+- The top-level `transactionType`/`transactionDate` describe the latest dated trade. `purchaseDate` is the earliest trade date. `signedQuantity` is the net holding, and `transactionValue`/`totalInvestment`/`totalValue` are remaining cost (`quantity * purchasePrice`), not the value of just the submitted trade.
+- Omitted metadata, including notes, watchlist, tags, and alerts, is preserved on repeat purchases. Supplied metadata updates the holding. Symbols with `.NS` and `.BO` remain separate listings.
 - Only Indian equities can be saved: the symbol must end in `.NS` (NSE) or `.BO` (BSE). The API derives the matching `exchange` and saves the currency as `INR`; a conflicting exchange or non-INR currency is rejected.
 - `quantity` must be greater than zero. The transaction type controls whether it adds to or subtracts from the holding.
 - `price` is accepted as a frontend-friendly alias for `purchasePrice`; for a sell row it is the sale price. If `currentPrice` is omitted, `price` is also used as `currentPrice`.
-- Calculated response fields include `transactionValue`, `signedQuantity`, and the legacy `totalInvestment`/`totalValue` aliases.
 - `transactionType` must be `buy` or `sell`; default is `buy`.
-- A sell is rejected with `409` when its quantity exceeds the authenticated user's available quantity for that symbol.
+- A sell is rejected with `409` when replaying the dated trades would make quantity negative, including backdated trades. Concurrent requests retry conflicting updates; sustained contention can return `409` with a retry message.
 - `transactionDate` is accepted as the manual transaction date. `purchaseDate` remains supported for older clients.
 - Supported market caps: `Large Cap`, `Mid Cap`, `Small Cap`, `Micro Cap`
+- This endpoint records a new transaction each time it succeeds; repeating an identical POST intentionally adds its quantity again.
+- POST also consolidates existing duplicates for the requested user/symbol, including legacy casing or whitespace, into the oldest stock ID. Original rows are backed up within the same database transaction. This works even when the old stock index is non-unique; a global migration is optional. See [Stock holding migration](docs/12_stock_holdings.md). MongoDB transaction support is required.
 
 ## 57. Get User's Stock Collection
 
@@ -513,7 +519,7 @@ No endpoint is currently configured for these areas:
 | `sortOrder` | No | `desc` | `asc` or `desc` |
 
 - Example local URL: `http://localhost:4500/api/stocks?sector=Energy&watchlist=true&page=1&limit=20&sortBy=currentPrice&sortOrder=desc`
-- Response includes: transaction rows, pagination info, signed portfolio summary, and `transactionOptions: ["buy", "sell"]`. Every row contains its own `transactionType`.
+- Response includes one stock row per symbol, embedded `transactions`, pagination, portfolio summary, and `transactionOptions: ["buy", "sell"]`. The `transactionType` filter matches holdings containing a trade of that type. Quantity-zero closed holdings remain in this collection; `/holdings` returns only open positions.
 
 ## 57A. Get Consolidated Stock Holdings
 
@@ -572,7 +578,7 @@ No endpoint is currently configured for these areas:
 - Headers: `Authorization: Bearer <JWT_TOKEN>`
 - Payload: Not required
 
-## 61. Update Stock Transaction
+## 61. Update Stock or Correct a Transaction
 
 - Method: `PATCH` or `PUT`
 - Local URL: `http://localhost:4500/api/stocks/:id`
@@ -581,11 +587,10 @@ No endpoint is currently configured for these areas:
 - Headers: 
   - `Content-Type: application/json`
   - `Authorization: Bearer <JWT_TOKEN>`
-- Payload: Send at least one field. A change is rejected if it would make the user's quantity for that symbol negative.
+- Payload: Send at least one field. Metadata applies to the holding. To correct quantity, price, transaction type, or date on a holding with multiple trades, include `transactionId` from `data.transactions[]._id`; otherwise the API returns `409`. A single-trade holding can still be corrected without this ID. Trade corrections replay the full history and reject negative quantities. Use POST for an additional purchase, since PATCH/PUT replaces the selected trade's values.
 
 ```json
 {
-  "quantity": 15,
   "currentPrice": 2700.00,
   "sector": "Oil & Gas",
   "notes": "Increased position due to positive outlook",
@@ -676,7 +681,7 @@ No endpoint is currently configured for these areas:
 - Example local URL: `http://localhost:4500/api/stocks/64abc123abc123abc123abcd`
 - Headers: `Authorization: Bearer <JWT_TOKEN>`
 - Payload: Not required
-- Purpose: Permanently removes stock from user's collection
+- Purpose: Permanently removes the stock and its embedded transaction history from the user's collection.
 
 ---
 

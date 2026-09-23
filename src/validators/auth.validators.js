@@ -26,7 +26,7 @@ const parsePhone = (value) => {
 };
 
 const validatePassword = (value, label, errors) => {
-  const password = normalizeString(value);
+  const password = typeof value === "string" ? value : "";
 
   if (!password) {
     errors.push(`${label} is required`);
@@ -36,6 +36,8 @@ const validatePassword = (value, label, errors) => {
   if (password.length < 8) {
     errors.push(`${label} must be at least 8 characters long`);
   }
+
+  if (Buffer.byteLength(password, "utf8") > 72) errors.push(`${label} must be at most 72 UTF-8 bytes`);
 
   return password;
 };
@@ -51,7 +53,7 @@ export const createUserSchema = {
     const password = validatePassword(body.password, "password", errors);
     const phoneResult = parsePhone(body.phone);
 
-    if (!name) {
+    if (typeof name !== "string" || !name) {
       errors.push("name is required");
     } else if (name.length < 2) {
       errors.push("name must be at least 2 characters long");
@@ -100,7 +102,7 @@ export const loginUserSchema = {
   body(body) {
     const errors = [];
     const email = normalizeEmail(body.email);
-    const password = normalizeString(body.password);
+    const password = typeof body.password === "string" ? body.password : "";
 
     if (!email) {
       errors.push("email is required");
@@ -117,7 +119,7 @@ export const loginUserSchema = {
 export const loginWithGoogleSchema = {
   body(body) {
     const errors = [];
-    const idToken = normalizeString(body.idToken);
+    const idToken = typeof body.idToken === "string" ? body.idToken.trim() : "";
 
     if (!idToken) {
       errors.push("idToken is required");
@@ -174,7 +176,7 @@ export const resetPasswordSchema = {
 export const changePasswordSchema = {
   body(body) {
     const errors = [];
-    const oldPassword = normalizeString(body.oldPassword);
+    const oldPassword = typeof body.oldPassword === "string" ? body.oldPassword : "";
     const newPassword = validatePassword(
       body.newPassword,
       "newPassword",

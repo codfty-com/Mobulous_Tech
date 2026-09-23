@@ -174,7 +174,7 @@ try {
   assert.deepEqual(unknown.body, requested.body);
   assert.equal((await post("admin/forgot-password", { email: regular.email })).status, 200);
   assert.equal(sent.length, 1);
-  assert.equal((await post("forgot-password", { email })).status, 400, "Public user reset must not reset an admin");
+  assert.equal((await post("forgot-password", { email })).status, 200, "Public user reset returns a generic confirmation for an admin without sending a code");
   assert.equal((await post("reset-password", { email, otp: otpFromMail(), newPassword })).status, 400);
   assert.equal((await post("admin/reset-password", { email, newPassword })).status, 400);
   const wrongOtp = otpFromMail() === "000000" ? "000001" : "000000";

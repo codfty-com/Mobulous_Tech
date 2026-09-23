@@ -1,0 +1,100 @@
+{
+  "info": {
+    "name": "Mobulous - Stock search verification",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Run requests in order. Search uses No Auth and no body. forceRefresh=true bypasses the fresh cache. limit is a maximum; fewer matches is correct. source=stale-cache means the live provider failed. For code changes use npm run dev, or restart npm start."
+  },
+  "auth": { "type": "noauth" },
+  "variable": [{ "key": "baseUrl", "value": "http://localhost:4500", "type": "string" }],
+  "event": [{
+    "listen": "test",
+    "script": {
+      "type": "text/javascript",
+      "exec": [
+        "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+        "const body = pm.response.json();",
+        "pm.test('Successful search with accurate counts', () => {",
+        "  pm.expect(body.success).to.eql(true);",
+        "  pm.expect(body.count).to.eql(body.data.length);",
+        "  pm.expect(body.total).to.eql(body.data.length);",
+        "  pm.expect(body.count).to.be.at.most(10);",
+        "});",
+        "const normalize = value => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');",
+        "const query = normalize(pm.request.url.query.get('query'));",
+        "pm.test('Only matching Indian stocks; no ETFs', () => {",
+        "  body.data.forEach((stock, index) => {",
+        "    pm.expect(stock.type).to.eql('EQUITY');",
+        "    pm.expect(stock.symbol).to.match(/\\.(NS|BO)$/);",
+        "    pm.expect(stock.symbol).not.to.match(/(?:ETF|BEES)\\.(NS|BO)$/i);",
+        "    const names = [stock.displayName, stock.shortName, stock.longName];",
+        "    names.forEach(name => pm.expect(name || '').not.to.match(/\\b(?:ETF|ETN|mutual\\s+fund|index\\s+fund)\\b/i));",
+        "    pm.expect([stock.symbol, ...names].some(value => normalize(value).includes(query))).to.eql(true);",
+        "    pm.expect(stock.rank).to.eql(index + 1);",
+        "  });",
+        "});",
+        "pm.test('Expected matching or empty result', () => {",
+        "  if (['GOLDBEES', 'NIFTYBEES', 'ZZZZNOMATCHINGCOMPANY987654'].includes(query)) pm.expect(body.data).to.eql([]);",
+        "  else pm.expect(body.count).to.be.above(0);",
+        "});"
+      ]
+    }
+  }],
+  "item": [
+    {
+      "name": "1 - Reliance - fresh response",
+      "request": { "method": "GET", "url": {
+        "raw": "{{baseUrl}}/api/stocks?query=reliance&region=IN&limit=10&forceRefresh=true",
+        "host": ["{{baseUrl}}"], "path": ["api", "stocks"],
+        "query": [{"key":"query","value":"reliance"},{"key":"region","value":"IN"},{"key":"limit","value":"10"},{"key":"forceRefresh","value":"true"}]
+      }}
+    },
+    {
+      "name": "2 - Reliance - cached response",
+      "request": { "method": "GET", "url": {
+        "raw": "{{baseUrl}}/api/stocks?query=reliance&region=IN&limit=10",
+        "host": ["{{baseUrl}}"], "path": ["api", "stocks"],
+        "query": [{"key":"query","value":"reliance"},{"key":"region","value":"IN"},{"key":"limit","value":"10"}]
+      }}
+    },
+    {
+      "name": "3 - Company name search",
+      "request": { "method": "GET", "url": {
+        "raw": "{{baseUrl}}/api/stocks?query=reliance%20power&region=IN&limit=10&forceRefresh=true",
+        "host": ["{{baseUrl}}"], "path": ["api", "stocks"],
+        "query": [{"key":"query","value":"reliance power"},{"key":"region","value":"IN"},{"key":"limit","value":"10"},{"key":"forceRefresh","value":"true"}]
+      }}
+    },
+    {
+      "name": "4 - Partial symbol search",
+      "request": { "method": "GET", "url": {
+        "raw": "{{baseUrl}}/api/stocks?query=rpow&region=IN&limit=10&forceRefresh=true",
+        "host": ["{{baseUrl}}"], "path": ["api", "stocks"],
+        "query": [{"key":"query","value":"rpow"},{"key":"region","value":"IN"},{"key":"limit","value":"10"},{"key":"forceRefresh","value":"true"}]
+      }}
+    },
+    {
+      "name": "5 - Gold ETF must return no stocks",
+      "request": { "method": "GET", "url": {
+        "raw": "{{baseUrl}}/api/stocks?query=GOLDBEES&region=IN&limit=10&forceRefresh=true",
+        "host": ["{{baseUrl}}"], "path": ["api", "stocks"],
+        "query": [{"key":"query","value":"GOLDBEES"},{"key":"region","value":"IN"},{"key":"limit","value":"10"},{"key":"forceRefresh","value":"true"}]
+      }}
+    },
+    {
+      "name": "6 - Nifty ETF must return no stocks",
+      "request": { "method": "GET", "url": {
+        "raw": "{{baseUrl}}/api/stocks?query=NIFTYBEES&region=IN&limit=10&forceRefresh=true",
+        "host": ["{{baseUrl}}"], "path": ["api", "stocks"],
+        "query": [{"key":"query","value":"NIFTYBEES"},{"key":"region","value":"IN"},{"key":"limit","value":"10"},{"key":"forceRefresh","value":"true"}]
+      }}
+    },
+    {
+      "name": "7 - No matching company",
+      "request": { "method": "GET", "url": {
+        "raw": "{{baseUrl}}/api/stocks?query=zzzznomatchingcompany987654&region=IN&limit=10&forceRefresh=true",
+        "host": ["{{baseUrl}}"], "path": ["api", "stocks"],
+        "query": [{"key":"query","value":"zzzznomatchingcompany987654"},{"key":"region","value":"IN"},{"key":"limit","value":"10"},{"key":"forceRefresh","value":"true"}]
+      }}
+    }
+  ]
+}
