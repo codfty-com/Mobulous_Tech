@@ -61,7 +61,7 @@ POST serializes writes for the authenticated user and normalized symbol using a 
 
 MongoDB must support transactions (a replica set or sharded cluster, including MongoDB Atlas). An unrelated symbol with invalid legacy history does not block adding a valid symbol. If the requested symbol itself has invalid sell history, POST returns a conflict rather than inserting another stock. The model also defines a unique `{ userId: 1, symbol: 1 }` index, which the optional migration below installs on legacy databases.
 
-`GET /api/stocks` returns holdings, with their transaction histories. `/holdings` returns open positions. Portfolio summaries keep their existing net-cash-invested convention (purchase payments minus sale proceeds), while each stock's `purchasePrice` and `totalInvestment` describe the average cost and remaining cost. Historical net worth uses the individual dated trades.
+`GET /api/stocks` returns holdings, with their transaction histories. `/holdings` returns open positions. Portfolio summaries and holdings now use the remaining average purchase cost. Sale proceeds no longer reduce the remaining cost basis; profit/loss on these endpoints is unrealized profit/loss on open holdings. This changes the previous net-cash-invested convention. Historical net worth uses the individual dated trades.
 
 For trade corrections with `PATCH` or `PUT /api/stocks/:id`, pass `transactionId` together with the corrected fields when the stock has more than one trade. IDs come from `data.transactions`. Metadata edits need no transaction ID. Deleting a stock deletes its history too.
 
@@ -80,3 +80,62 @@ This command now consolidates holdings; it no longer removes uniqueness to allow
 ## Verification
 
 `npm run test:stocks` runs unit checks and real HTTP/database integration checks against an isolated local MongoDB replica set. Coverage includes concurrent initial purchases and additions with a non-unique legacy stock index, per-symbol duplicate consolidation, metadata preservation, and unrelated invalid legacy trades. Tests never use the configured application database. The first run may download a MongoDB test binary.
+
+## Holding value and daily performance
+
+All amounts are INR; percentages are percentage points (5.26 means 5.26%).
+
+| Field | Meaning |
+| --- | --- |
+| totalHoldingAmount | Current price multiplied by remaining quantity |
+| todayPriceChange | Current price minus previous trading session close, per share |
+| todayChange | todayPriceChange multiplied by remaining quantity |
+| todayChangePercentage | todayChange divided by the previous-close value of those shares, times 100 |
+| profitLoss | Current holding value minus remaining average purchase cost |
+| profitLossPercentage | profitLoss divided by remaining purchase cost, times 100 |
+| holdingPercentage | Holding current value divided by all holdings' current value, times 100 |
+| profitLossStatus | profit, loss, or neutral for total holding profit/loss |
+| todayChangeStatus | profit, loss, neutral, or unavailable for daily movement |
+
+Use profit for green, loss for red, and neutral/unavailable for a neutral color. Total and daily statuses are independent: a holding can be profitable overall while falling today. Daily movement values describe the latest supplied market session on the currently held quantity; they are not transaction-adjusted intraday trading P&L. Aggregate daily percentages use total previous-close value, never a sum or average of stock percentages. Percentages are null when their denominator is zero.
+
+Prices are stored snapshots, not automatically fetched live. Supply currentPrice and previousClose from the same quote session through POST /api/stocks, PUT/PATCH /api/stocks/:id, or PATCH /api/stocks/prices:
+
+```json
+{
+  "updates": [
+    { "id": "<stock-id>", "currentPrice": 200, "previousClose": 190 }
+  ]
+}
+```
+
+Omitting previousClose preserves the existing baseline; refresh it when the market session changes. If no baseline exists, daily amount/percentage are null and todayChangeStatus is unavailable. If any open holding lacks daily data, the aggregate daily result is unavailable too. Where a current price is missing, consolidated valuations use average purchase cost and expose priceSource: average_cost. Otherwise priceSource is stored.
+
+For 10 shares with average purchase cost 120, currentPrice 200 and previousClose 190:
+
+```json
+{
+  "totalHoldingAmount": 2000,
+  "todayPriceChange": 10,
+  "todayChange": 100,
+  "todayChangePercentage": 5.26,
+  "todayChangeStatus": "profit",
+  "profitLoss": 800,
+  "profitLossPercentage": 66.67,
+  "profitLossStatus": "profit",
+  "holdingPercentage": 100
+}
+```
+
+Updated read APIs:
+
+- GET /api/stocks/holdings: metrics per open holding in data; combined totals in summary.
+- GET /api/stocks/:id: daily metrics and totalHoldingAmount in data alongside existing profitLoss and profitLossPercentage.
+- GET /api/stocks: metrics per data item and corrected aggregate summary (authenticated holdings request without a search query).
+- GET /api/stocks/summary: corrected overall and bySector totals, daily changes and statuses.
+- GET /api/stocks/net-worth: totalHoldingAmount, daily changes and statuses alongside totalProfitLoss and totalProfitLossPercentage. Historical period calculations remain transaction-based; top-level totals describe current open holdings.
+- GET /api/portfolio/dashboard: metrics in data.portfolio and data.assets; includes manual stock daily movement.
+- GET /api/portfolio/categories/stocks: metrics in data.category and data.holdings; includes manual stock holdings with source: manual_stock. Edit these holdings via /api/stocks/:id, not /api/portfolio/holdings/:id.
+- GET /api/assets: inherits the dashboard metrics for active categories and portfolio totals. GET /api/assets/net-worth inherits the corrected stock cost basis in its existing totals.
+
+holdingPercentage is returned by the consolidated holdings and category detail APIs; it is the weight within that response's full holdings set. The same daily/total metrics also appear for other portfolio categories, using their instrument prices. Existing aliases such as currentValue, totalCurrentValue, totalGain and returnPercentage are preserved; use profitLossPercentage for consistent null handling when the cost is zero.

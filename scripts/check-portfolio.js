@@ -43,6 +43,7 @@ UserStock.getUserPortfolioValue = async () => ({
   totalCurrentValue: 0,
 });
 
+const emptyStockPortfolio = UserStock.getUserPortfolioValue;
 const firstDashboard = await getDashboard(userOne);
 assert.equal(firstDashboard.portfolio.holdingCount, 3);
 assert.equal(firstDashboard.portfolio.investedAmount, 325000);
@@ -58,6 +59,23 @@ const secondDashboard = await getDashboard(userTwo);
 assert.equal(secondDashboard.portfolio.currentValue, 50);
 assert.equal(secondDashboard.assets[1].currentValue, 0);
 assert.equal(secondDashboard.portfolio.returnPercentage, 0);
+
+
+assert.equal(firstDashboard.portfolio.profitLossStatus, "profit");
+assert.equal(firstDashboard.portfolio.todayChangeStatus, "loss");
+assert.equal(firstDashboard.portfolio.todayChangePercentage, -0.04);
+UserStock.getUserPortfolioValue = async () => ({
+  totalStocks: 1, totalInvestment: 1200, totalCurrentValue: 2000, todayChange: 100,
+});
+const withStocks = await getDashboard(userOne);
+assert.equal(withStocks.portfolio.totalHoldingAmount, 439255);
+assert.equal(withStocks.portfolio.todayChange, -71.78);
+assert.equal(withStocks.assets[0].todayChange, -50.78);
+UserStock.getUserPortfolioValue = async () => ({
+  totalStocks: 1, totalInvestment: 1200, totalCurrentValue: 2000, todayChange: null,
+});
+assert.equal((await getDashboard(userOne)).portfolio.todayChangeStatus, "unavailable");
+UserStock.getUserPortfolioValue = emptyStockPortfolio;
 
 const validHolding = createHoldingSchema.body({
   categoryKey: "stocks",
@@ -100,6 +118,21 @@ UserHolding.findOneAndDelete = async (filter) => {
 await assert.rejects(() => deleteHolding(userOne, "000000000000000000000301"), /Holding not found/);
 assert.equal(String(ownershipFilter.userId), userOne);
 
+Asset.findOne = async () => ({ _id: stockCategory, key: "stocks", name: "Stocks" });
+UserHolding.aggregate = async () => [];
+UserStock.getUserHoldings = async () => [{
+  holdingId: "000000000000000000000401", symbol: "TEST.NS", quantity: 10,
+  netInvestment: 1200, currentValue: 2000, currentPrice: 200, previousClose: 190,
+  todayChange: 100, profitLoss: 800, profitLossPercentage: 66.67,
+  transactionCount: 3, buyTransactions: 2, sellTransactions: 1,
+}];
+const category = await getCategoryPortfolio(userOne, "stocks");
+assert.equal(category.category.totalHoldingAmount, 2000);
+assert.equal(category.category.todayChange, 100);
+assert.equal(category.category.todayChangePercentage, 5.26);
+assert.equal(category.holdings.length, 1);
+assert.equal(category.holdings[0].source, "manual_stock");
+assert.equal(category.holdings[0].holdingPercentage, 100);
 Asset.findOne = async () => null;
 await assert.rejects(() => getCategoryPortfolio(userOne, "not_a_category"), /Asset category not found/);
 

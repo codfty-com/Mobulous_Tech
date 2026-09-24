@@ -70,3 +70,7 @@ npm run seed:assets
 ```
 
 The seed is idempotent and removes legacy `totalHoldingAmounts` and `sortOrder` fields from asset-category documents.
+
+## Daily changes and holding performance
+
+Dashboard totals, category totals, and category holdings include totalHoldingAmount, profitLoss, profitLossPercentage, profitLossStatus, todayChange, todayChangePercentage and todayChangeStatus. Category holdings also include holdingPercentage and todayPriceChange. The stocks category includes manual stock holdings from /api/stocks, matching the dashboard. See [stock calculation and response details](12_stock_holdings.md#holding-value-and-daily-performance) for formulas, color statuses, missing-price behavior, and the price update payload.

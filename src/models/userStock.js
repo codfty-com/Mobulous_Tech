@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import { calculateHolding, stockTransactions } from "../utils/stockLedger.js";
+import { holdingMetrics } from "../utils/holdingMetrics.js";
 
 const transactionSchema = new mongoose.Schema({
   quantity: { type: Number, required: true, min: Number.MIN_VALUE },
@@ -63,6 +65,7 @@ const userStockSchema = new mongoose.Schema(
       type: Number,
       min: [0, "Current price cannot be negative"],
     },
+    previousClose: { type: Number, min: 0 },
     exchange: {
       type: String,
       trim: true,
@@ -181,8 +184,8 @@ userStockSchema.virtual("price").get(function () {
 
 // Virtual for calculating current value
 userStockSchema.virtual("currentValue").get(function () {
-  if (this.currentPrice !== undefined && this.quantity !== undefined) {
-    return this.currentPrice * this.quantity;
+  if (this.quantity !== undefined) {
+    return (this.currentPrice ?? this.purchasePrice ?? 0) * this.quantity;
   }
   return null;
 });
@@ -207,157 +210,79 @@ userStockSchema.virtual("profitLossPercentage").get(function () {
   return null;
 });
 
-// Static method to get user's total portfolio value
-userStockSchema.statics.getUserPortfolioValue = async function (userId) {
-  const pipeline = [
-    { $match: { userId: new mongoose.Types.ObjectId(userId) } },
-    ...ledgerStages(),
-    { $sort: { transactionDate: 1, createdAt: 1 } },
-    {
-      $group: {
-        _id: "$symbol",
-        netQuantity: {
-          $sum: {
-            $cond: [
-              { $eq: ["$transactionType", "sell"] },
-              { $multiply: [-1, "$quantity"] },
-              "$quantity",
-            ],
-          },
-        },
-        netInvestment: {
-          $sum: {
-            $multiply: [
-              { $cond: [{ $eq: ["$transactionType", "sell"] }, -1, 1] },
-              { $ifNull: ["$purchasePrice", 0] },
-              "$quantity",
-            ],
-          },
-        },
-        currentPrice: { $last: { $ifNull: ["$currentPrice", "$purchasePrice"] } },
-        transactions: { $sum: 1 },
-        buyTransactions: { $sum: { $cond: [{ $eq: ["$transactionType", "buy"] }, 1, 0] } },
-        sellTransactions: { $sum: { $cond: [{ $eq: ["$transactionType", "sell"] }, 1, 0] } },
-      },
-    },
-    {
-      $group: {
-        _id: 0,
-        totalInvestment: { $sum: "$netInvestment" },
-        totalCurrentValue: {
-          $sum: { $multiply: ["$netQuantity", { $ifNull: ["$currentPrice", 0] }] },
-        },
-        totalQuantity: { $sum: "$netQuantity" },
-        totalStocks: { $sum: { $cond: [{ $gt: ["$netQuantity", 0] }, 1, 0] } },
-        totalTransactions: { $sum: "$transactions" },
-        buyTransactions: { $sum: "$buyTransactions" },
-        sellTransactions: { $sum: "$sellTransactions" },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        totalInvestment: 1,
-        totalCurrentValue: 1,
-        totalQuantity: 1,
-        totalStocks: 1,
-        totalTransactions: 1,
-        buyTransactions: 1,
-        sellTransactions: 1,
-        totalProfitLoss: { $subtract: ["$totalCurrentValue", "$totalInvestment"] },
-        totalProfitLossPercentage: {
-          $cond: [
-            { $eq: ["$totalInvestment", 0] },
-            0,
-            { $multiply: [{ $divide: [{ $subtract: ["$totalCurrentValue", "$totalInvestment"] }, "$totalInvestment"] }, 100] },
-          ],
-        },
-      },
-    },
-  ];
-
-  const result = await this.aggregate(pipeline);
-  return (
-    result[0] || {
-      totalInvestment: 0,
-      totalCurrentValue: 0,
-      totalQuantity: 0,
-      totalStocks: 0,
-      totalTransactions: 0,
-      buyTransactions: 0,
-      sellTransactions: 0,
-      totalProfitLoss: 0,
-      totalProfitLossPercentage: 0,
-    }
-  );
+// Replay trades using the same average-cost calculation as stock writes.
+userStockSchema.statics.getValuedHoldings = async function (userId) {
+  const rows = await this.find({ userId }).sort({ createdAt: 1, _id: 1 }).lean();
+  const grouped = new Map();
+  for (const row of rows) {
+    const symbol = row.symbol.trim().toUpperCase();
+    if (!grouped.has(symbol)) grouped.set(symbol, []);
+    grouped.get(symbol).push(row);
+  }
+  const holdings = [...grouped].map(([symbol, stocks]) => {
+    const latest = [...stocks].sort((a, b) => new Date(a.lastUpdated || a.createdAt) - new Date(b.lastUpdated || b.createdAt)).at(-1);
+    const trades = stocks.flatMap(stockTransactions);
+    const position = calculateHolding(trades);
+    const currentPrice = latest.currentPrice ?? position.purchasePrice;
+    const currentValue = position.quantity * currentPrice;
+    const netInvestment = position.quantity * position.purchasePrice;
+    const todayChange = position.quantity === 0 ? 0 : latest.previousClose != null && latest.currentPrice != null
+      ? position.quantity * (currentPrice - latest.previousClose) : null;
+    return {
+      holdingId: String(stocks[0]._id), symbol, name: latest.name, icon: latest.icon,
+      exchange: latest.exchange, sector: latest.sector, currency: latest.currency,
+      currentPrice, previousClose: latest.previousClose ?? null,
+      todayPriceChange: latest.currentPrice != null && latest.previousClose != null ? currentPrice - latest.previousClose : null,
+      priceSource: latest.currentPrice == null ? "average_cost" : "stored",
+      priceUpdatedAt: latest.lastUpdated,
+      quantity: position.quantity, averagePurchasePrice: position.purchasePrice,
+      netInvestment, currentValue,
+      transactionCount: trades.length,
+      buyTransactions: trades.filter((trade) => trade.transactionType !== "sell").length,
+      sellTransactions: trades.filter((trade) => trade.transactionType === "sell").length,
+      lastTransactionDate: position.transactionDate,
+      ...holdingMetrics({ investedAmount: netInvestment, currentValue, todayChange }),
+    };
+  });
+  const totalValue = holdings.reduce((sum, holding) => sum + holding.currentValue, 0);
+  return holdings.map((holding) => ({ ...holding,
+    holdingPercentage: totalValue > 0 ? Math.round(holding.currentValue / totalValue * 10000) / 100 : 0,
+  })).sort((a, b) => b.currentValue - a.currentValue || a.symbol.localeCompare(b.symbol));
 };
 
-// Static method to get stocks by sector
+userStockSchema.statics.summarizeHoldings = function (holdings) {
+  const totalInvestment = holdings.reduce((sum, row) => sum + row.netInvestment, 0);
+  const totalCurrentValue = holdings.reduce((sum, row) => sum + row.currentValue, 0);
+  const todayChange = holdings.some((row) => row.quantity > 0 && row.todayChange == null) ? null
+    : holdings.reduce((sum, row) => sum + row.quantity * (row.currentPrice - (row.previousClose ?? row.currentPrice)), 0);
+  const metrics = holdingMetrics({ investedAmount: totalInvestment, currentValue: totalCurrentValue, todayChange });
+  return {
+    totalInvestment, totalCurrentValue,
+    totalQuantity: holdings.reduce((sum, row) => sum + row.quantity, 0),
+    totalStocks: holdings.filter((row) => row.quantity > 0).length,
+    totalTransactions: holdings.reduce((sum, row) => sum + row.transactionCount, 0),
+    buyTransactions: holdings.reduce((sum, row) => sum + row.buyTransactions, 0),
+    sellTransactions: holdings.reduce((sum, row) => sum + row.sellTransactions, 0),
+    totalProfitLoss: metrics.profitLoss,
+    totalProfitLossPercentage: metrics.profitLossPercentage,
+    ...metrics,
+  };
+};
+userStockSchema.statics.getUserPortfolioValue = async function (userId) {
+  return this.summarizeHoldings(await this.getValuedHoldings(userId));
+};
 userStockSchema.statics.getStocksBySector = async function (userId) {
-  const pipeline = [
-    { $match: { userId: new mongoose.Types.ObjectId(userId) } },
-    ...ledgerStages(),
-    { $sort: { transactionDate: 1, createdAt: 1 } },
-    {
-      $group: {
-        _id: { sector: { $ifNull: ["$sector", "Uncategorized"] }, symbol: "$symbol" },
-        transactions: { $sum: 1 },
-        quantity: {
-          $sum: {
-            $multiply: [
-              { $cond: [{ $eq: ["$transactionType", "sell"] }, -1, 1] },
-              "$quantity",
-            ],
-          },
-        },
-        totalInvestment: {
-          $sum: {
-            $multiply: [
-              { $cond: [{ $eq: ["$transactionType", "sell"] }, -1, 1] },
-              { $ifNull: ["$purchasePrice", 0] },
-              "$quantity",
-            ],
-          },
-        },
-        currentPrice: { $last: { $ifNull: ["$currentPrice", "$purchasePrice"] } },
-      },
-    },
-    {
-      $group: {
-        _id: "$_id.sector",
-        count: { $sum: { $cond: [{ $gt: ["$quantity", 0] }, 1, 0] } },
-        transactions: { $sum: "$transactions" },
-        quantity: { $sum: "$quantity" },
-        totalInvestment: { $sum: "$totalInvestment" },
-        totalCurrentValue: {
-          $sum: { $multiply: ["$quantity", { $ifNull: ["$currentPrice", 0] }] },
-        },
-      },
-    },
-    {
-      $project: {
-        sector: "$_id",
-        count: 1,
-        transactions: 1,
-        quantity: 1,
-        totalInvestment: 1,
-        totalCurrentValue: 1,
-        profitLoss: {
-          $subtract: ["$totalCurrentValue", "$totalInvestment"],
-        },
-        profitLossPercentage: {
-          $cond: [
-            { $eq: ["$totalInvestment", 0] },
-            0,
-            { $multiply: [{ $divide: [{ $subtract: ["$totalCurrentValue", "$totalInvestment"] }, "$totalInvestment"] }, 100] },
-          ],
-        },
-      },
-    },
-    { $sort: { totalCurrentValue: -1 } },
-  ];
-
-  return await this.aggregate(pipeline);
+  const grouped = new Map();
+  for (const holding of await this.getValuedHoldings(userId)) {
+    const sector = holding.sector || "Uncategorized";
+    if (!grouped.has(sector)) grouped.set(sector, []);
+    grouped.get(sector).push(holding);
+  }
+  return [...grouped].map(([sector, holdings]) => {
+    const summary = this.summarizeHoldings(holdings);
+    return { _id: sector, sector, ...summary, count: summary.totalStocks,
+      transactions: summary.totalTransactions, quantity: summary.totalQuantity };
+  }).sort((a, b) => b.totalCurrentValue - a.totalCurrentValue);
 };
 
 userStockSchema.statics.getNetQuantity = async function (
@@ -389,73 +314,22 @@ userStockSchema.statics.getNetQuantity = async function (
 };
 
 userStockSchema.statics.getUserHoldings = async function (userId) {
-  return this.aggregate([
-    { $match: { userId: new mongoose.Types.ObjectId(userId) } },
-    ...ledgerStages(),
-    { $sort: { transactionDate: 1, createdAt: 1 } },
-    {
-      $group: {
-        _id: "$symbol",
-        name: { $last: "$name" },
-        icon: { $last: "$icon" },
-        exchange: { $last: "$exchange" },
-        sector: { $last: "$sector" },
-        currency: { $last: "$currency" },
-        currentPrice: { $last: { $ifNull: ["$currentPrice", "$purchasePrice"] } },
-        quantity: {
-          $sum: {
-            $multiply: [
-              { $cond: [{ $eq: ["$transactionType", "sell"] }, -1, 1] },
-              "$quantity",
-            ],
-          },
-        },
-        netInvestment: {
-          $sum: {
-            $multiply: [
-              { $cond: [{ $eq: ["$transactionType", "sell"] }, -1, 1] },
-              { $ifNull: ["$purchasePrice", 0] },
-              "$quantity",
-            ],
-          },
-        },
-        transactionCount: { $sum: 1 },
-        lastTransactionDate: { $max: "$transactionDate" },
-      },
-    },
-    { $match: { quantity: { $gt: 0 } } },
-    {
-      $project: {
-        _id: 0,
-        symbol: "$_id",
-        exchange: 1,
-        name: 1,
-        icon: 1,
-        sector: 1,
-        currency: 1,
-        currentPrice: 1,
-        quantity: 1,
-        netInvestment: 1,
-        currentValue: { $multiply: ["$quantity", { $ifNull: ["$currentPrice", 0] }] },
-        transactionCount: 1,
-        lastTransactionDate: 1,
-      },
-    },
-    {
-      $set: {
-        profitLoss: { $subtract: ["$currentValue", "$netInvestment"] },
-        profitLossPercentage: {
-          $cond: [
-            { $eq: ["$netInvestment", 0] },
-            0,
-            { $multiply: [{ $divide: [{ $subtract: ["$currentValue", "$netInvestment"] }, "$netInvestment"] }, 100] },
-          ],
-        },
-      },
-    },
-    { $sort: { currentValue: -1, symbol: 1 } },
-  ]);
+  return (await this.getValuedHoldings(userId)).filter((holding) => holding.quantity > 0);
 };
+
+for (const field of ["totalHoldingAmount", "todayChange", "todayChangePercentage", "todayChangeStatus", "profitLossStatus"]) {
+  userStockSchema.virtual(field).get(function () {
+    return holdingMetrics({
+      investedAmount: this.quantity * (this.purchasePrice ?? 0),
+      currentValue: this.quantity * (this.currentPrice ?? this.purchasePrice ?? 0),
+      todayChange: this.quantity === 0 ? 0 : this.previousClose != null && this.currentPrice != null
+        ? this.quantity * (this.currentPrice - this.previousClose) : null,
+    })[field];
+  });
+}
+userStockSchema.virtual("todayPriceChange").get(function () {
+  return this.currentPrice != null && this.previousClose != null ? this.currentPrice - this.previousClose : null;
+});
 
 // Ensure virtuals are included in JSON
 userStockSchema.set("toJSON", { virtuals: true });

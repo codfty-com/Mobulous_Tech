@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { holdingMetrics } from "../utils/holdingMetrics.js";
 import { AppError } from "../utils/http.js";
 import Asset from "../models/asset.js";
 import Instrument from "../models/instrument.js";
@@ -8,7 +9,7 @@ import PortfolioSnapshot from "../models/portfolioSnapshot.js";
 import UserStock from "../models/userStock.js";
 
 const round = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
-const metricsFor = ({ holdingCount = 0, investedAmount = 0, currentValue = 0, todayChange = 0 }) => {
+const metricsFor = ({ holdingCount = 0, investedAmount = 0, currentValue = 0, todayChange = 0, missingDailyPrices = 0 }) => {
   const invested = round(investedAmount);
   const current = round(currentValue);
   const totalGain = round(current - invested);
@@ -17,7 +18,7 @@ const metricsFor = ({ holdingCount = 0, investedAmount = 0, currentValue = 0, to
     investedAmount: invested,
     currentValue: current,
     totalGain,
-    todayChange: round(todayChange),
+    ...holdingMetrics({ investedAmount, currentValue, todayChange: missingDailyPrices > 0 ? null : todayChange }),
     returnPercentage: invested === 0 ? 0 : round((totalGain / invested) * 100),
   };
 };
@@ -37,6 +38,7 @@ const totalsPipeline = (match) => [
       holdingCount: { $sum: 1 },
       investedAmount: { $sum: "$investedAmount" },
       currentValue: { $sum: { $multiply: ["$quantity", "$instrument.currentPrice"] } },
+      missingDailyPrices: { $sum: { $cond: [{ $eq: [{ $ifNull: ["$instrument.previousClose", null] }, null] }, 1, 0] } },
       todayChange: {
         $sum: {
           $multiply: [
@@ -100,15 +102,15 @@ export const getDashboard = async (userId) => {
   const byCategoryId = new Map(grouped.map((entry) => [String(entry._id.categoryId), entry]));
   const assets = categories.map((category) => {
     const values = byCategoryId.get(String(category._id)) || {};
-    const holdingMetrics = metricsFor(values);
+    const categoryMetrics = metricsFor(values);
     const metrics = category.key === "stocks"
       ? metricsFor({
-          holdingCount: holdingMetrics.holdingCount + stockPortfolio.totalStocks,
-          investedAmount: holdingMetrics.investedAmount + stockPortfolio.totalInvestment,
-          currentValue: holdingMetrics.currentValue + stockPortfolio.totalCurrentValue,
-          todayChange: holdingMetrics.todayChange,
+          holdingCount: categoryMetrics.holdingCount + stockPortfolio.totalStocks,
+          investedAmount: categoryMetrics.investedAmount + stockPortfolio.totalInvestment,
+          currentValue: categoryMetrics.currentValue + stockPortfolio.totalCurrentValue,
+          todayChange: categoryMetrics.todayChange === null || stockPortfolio.todayChange === null ? null : categoryMetrics.todayChange + (stockPortfolio.todayChange ?? 0),
         })
-      : holdingMetrics;
+      : categoryMetrics;
     return {
       assetId: category.assetId,
       categoryId: String(category._id),
@@ -127,7 +129,7 @@ export const getDashboard = async (userId) => {
         holdingCount: total.holdingCount + asset.holdingCount,
         investedAmount: total.investedAmount + asset.investedAmount,
         currentValue: total.currentValue + asset.currentValue,
-        todayChange: total.todayChange + asset.todayChange,
+        todayChange: total.todayChange === null || asset.todayChange === null ? null : total.todayChange + asset.todayChange,
       }),
       { holdingCount: 0, investedAmount: 0, currentValue: 0, todayChange: 0 },
     ),
@@ -148,7 +150,15 @@ export const getCategoryPortfolio = async (userId, categoryKey) => {
       { $sort: { "instrument.name": 1 } },
     ]),
   ]);
-  const summary = metricsFor(grouped[0] || {});
+  const stocks = categoryKey === "stocks" ? await UserStock.getUserHoldings(userId) : [];
+  const stockSummary = UserStock.summarizeHoldings(stocks);
+  const existingMetrics = metricsFor(grouped[0] || {});
+  const summary = metricsFor({
+    holdingCount: existingMetrics.holdingCount + stocks.length,
+    investedAmount: existingMetrics.investedAmount + stockSummary.totalInvestment,
+    currentValue: existingMetrics.currentValue + stockSummary.totalCurrentValue,
+    todayChange: existingMetrics.todayChange === null || stockSummary.todayChange === null ? null : existingMetrics.todayChange + stockSummary.todayChange,
+  });
   return {
     category: {
       assetId: category.assetId,
@@ -159,20 +169,21 @@ export const getCategoryPortfolio = async (userId, categoryKey) => {
       status: category.status,
       ...summary,
     },
-    holdings: holdings.map((holding) => {
+    holdings: [...holdings.map((holding) => {
       const currentPrice = holding.instrument.currentPrice;
-      const previousClose = holding.instrument.previousClose ?? currentPrice;
+      const previousClose = holding.instrument.previousClose ?? null;
       const values = metricsFor({
         holdingCount: 1,
         investedAmount: holding.investedAmount,
         currentValue: holding.quantity * currentPrice,
-        todayChange: holding.quantity * (currentPrice - previousClose),
+        todayChange: previousClose === null ? null : holding.quantity * (currentPrice - previousClose),
       });
       return {
         holdingId: String(holding._id),
         categoryKey: holding.categoryKey,
         quantity: holding.quantity,
         averagePurchasePrice: holding.averagePurchasePrice,
+        todayPriceChange: previousClose === null ? null : currentPrice - previousClose,
         source: holding.source,
         externalHoldingId: holding.externalHoldingId,
         lastSyncedAt: holding.lastSyncedAt,
@@ -186,7 +197,16 @@ export const getCategoryPortfolio = async (userId, categoryKey) => {
           : null,
         ...values,
       };
-    }),
+    }), ...stocks.map((stock) => ({
+      ...stock, categoryKey: "stocks", source: "manual_stock",
+      holdingCount: 1, investedAmount: stock.netInvestment,
+      totalGain: stock.profitLoss, returnPercentage: stock.profitLossPercentage,
+      account: null,
+      instrument: { symbol: stock.symbol, name: stock.name, exchange: stock.exchange,
+        currency: stock.currency, currentPrice: stock.currentPrice, previousClose: stock.previousClose },
+    }))].map((holding) => ({ ...holding,
+      holdingPercentage: summary.currentValue > 0 ? round(holding.currentValue / summary.currentValue * 100) : 0,
+    })),
   };
 };
 

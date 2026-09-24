@@ -250,6 +250,11 @@ export const addStockSchema = {
     // Add optional fields only if they have values
     if (icon) data.icon = icon;
     if (purchasePrice !== undefined) data.purchasePrice = purchasePrice;
+    if (body.previousClose !== undefined) {
+      const previousClose = normalizeNumber(body.previousClose);
+      if (previousClose === undefined || previousClose < 0) errors.push("Previous close must be a non-negative number");
+      else data.previousClose = previousClose;
+    }
     if (currentPrice !== undefined) data.currentPrice = currentPrice;
     if (indianExchange) data.exchange = indianExchange;
     if (sector) data.sector = sector;
@@ -349,6 +354,11 @@ export const updateStockSchema = {
       }
     }
 
+    if (body.previousClose !== undefined) {
+      const previousClose = normalizeNumber(body.previousClose);
+      if (previousClose === undefined || previousClose < 0) errors.push("Previous close must be a non-negative number");
+      else data.previousClose = previousClose;
+    }
     if (body.currentPrice !== undefined) {
       const currentPrice = normalizeNumber(body.currentPrice);
       if (currentPrice === undefined) errors.push("Current price must be a valid number");
@@ -633,7 +643,13 @@ export const bulkUpdatePricesSchema = {
         return;
       }
 
+      const previousClose = normalizeNumber(update.previousClose);
+      if (update.previousClose !== undefined && (previousClose === undefined || previousClose < 0)) {
+        errors.push("Previous close must be a non-negative number");
+        return;
+      }
       updates.push({
+        ...(previousClose !== undefined ? { previousClose } : {}),
         id: update.id,
         currentPrice: currentPrice,
       });

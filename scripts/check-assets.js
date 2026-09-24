@@ -38,7 +38,7 @@ if (json.assetId !== "09") {
   throw new Error("Asset list fields are missing");
 }
 
-UserStock.aggregate = async () => [
+UserStock.getUserPortfolioValue = async () => (
   {
     totalInvestment: 1000,
     totalCurrentValue: 1250,
@@ -47,8 +47,8 @@ UserStock.aggregate = async () => [
     totalTransactions: 3,
     buyTransactions: 2,
     sellTransactions: 1,
-  },
-];
+  }
+);
 UserMutualFund.aggregate = async () => [
   { investedValue: 500, currentValue: 600, holdingsCount: 1 },
 ];

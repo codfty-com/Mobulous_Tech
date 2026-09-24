@@ -525,6 +525,7 @@ export const getStockHoldings = async (req, res) => {
       message: "Stock holdings fetched successfully",
       data,
       count: data.length,
+      summary: UserStock.summarizeHoldings(data),
       transactionOptions,
     });
   } catch (error) {
@@ -591,6 +592,11 @@ export const getStockNetWorth = async (req, res) => {
       data: {
         currency: "INR",
         totalNetWorth: portfolio.totalCurrentValue,
+        totalHoldingAmount: portfolio.totalHoldingAmount,
+        todayChange: portfolio.todayChange,
+        todayChangePercentage: portfolio.todayChangePercentage,
+        todayChangeStatus: portfolio.todayChangeStatus,
+        profitLossStatus: portfolio.profitLossStatus,
         totalInvestedValue: portfolio.totalInvestment,
         totalProfitLoss: portfolio.totalProfitLoss,
         totalProfitLossPercentage: portfolio.totalProfitLossPercentage,
@@ -728,6 +734,7 @@ export const bulkUpdatePrices = async (req, res) => {
         update: {
           $set: {
             currentPrice: update.currentPrice,
+            ...(update.previousClose !== undefined ? { previousClose: update.previousClose } : {}),
             lastUpdated: new Date(),
           },
         },
