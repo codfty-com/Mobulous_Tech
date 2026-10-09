@@ -88,6 +88,7 @@ All amounts are INR; percentages are percentage points (5.26 means 5.26%).
 | Field | Meaning |
 | --- | --- |
 | totalHoldingAmount | Current price multiplied by remaining quantity |
+| currentTotalAmount | Alias for the current price multiplied by remaining quantity |
 | todayPriceChange | Current price minus previous trading session close, per share |
 | todayChange | todayPriceChange multiplied by remaining quantity |
 | todayChangePercentage | todayChange divided by the previous-close value of those shares, times 100 |
@@ -99,7 +100,7 @@ All amounts are INR; percentages are percentage points (5.26 means 5.26%).
 
 Use profit for green, loss for red, and neutral/unavailable for a neutral color. Total and daily statuses are independent: a holding can be profitable overall while falling today. Daily movement values describe the latest supplied market session on the currently held quantity; they are not transaction-adjusted intraday trading P&L. Aggregate daily percentages use total previous-close value, never a sum or average of stock percentages. Percentages are null when their denominator is zero.
 
-Prices are stored snapshots, not automatically fetched live. Supply currentPrice and previousClose from the same quote session through POST /api/stocks, PUT/PATCH /api/stocks/:id, or PATCH /api/stocks/prices:
+Read APIs automatically refresh currentPrice and previousClose from the latest available market quote. purchasePrice remains the user's average cost basis. If the market provider is temporarily unavailable, the last stored price is used. You can still supply a price manually through POST /api/stocks, PUT/PATCH /api/stocks/:id, or PATCH /api/stocks/prices:
 
 ```json
 {

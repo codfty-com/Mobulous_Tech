@@ -190,6 +190,12 @@ userStockSchema.virtual("currentValue").get(function () {
   return null;
 });
 
+// Explicit alias for clients that display the current total amount of a
+// holding. This is based on the live/current price, never the purchase price.
+userStockSchema.virtual("currentTotalAmount").get(function () {
+  return this.currentValue;
+});
+
 // Virtual for calculating profit/loss
 userStockSchema.virtual("profitLoss").get(function () {
   const investment = this.totalInvestment;
@@ -236,7 +242,7 @@ userStockSchema.statics.getValuedHoldings = async function (userId) {
       priceSource: latest.currentPrice == null ? "average_cost" : "stored",
       priceUpdatedAt: latest.lastUpdated,
       quantity: position.quantity, averagePurchasePrice: position.purchasePrice,
-      netInvestment, currentValue,
+      netInvestment, currentValue, currentTotalAmount: currentValue,
       transactionCount: trades.length,
       buyTransactions: trades.filter((trade) => trade.transactionType !== "sell").length,
       sellTransactions: trades.filter((trade) => trade.transactionType === "sell").length,
@@ -257,7 +263,7 @@ userStockSchema.statics.summarizeHoldings = function (holdings) {
     : holdings.reduce((sum, row) => sum + row.quantity * (row.currentPrice - (row.previousClose ?? row.currentPrice)), 0);
   const metrics = holdingMetrics({ investedAmount: totalInvestment, currentValue: totalCurrentValue, todayChange });
   return {
-    totalInvestment, totalCurrentValue,
+    totalInvestment, totalCurrentValue, currentTotalAmount: totalCurrentValue,
     totalQuantity: holdings.reduce((sum, row) => sum + row.quantity, 0),
     totalStocks: holdings.filter((row) => row.quantity > 0).length,
     totalTransactions: holdings.reduce((sum, row) => sum + row.transactionCount, 0),

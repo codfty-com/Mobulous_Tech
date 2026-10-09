@@ -9,11 +9,52 @@ import {
   stockSymbolFilter,
   withStockSymbolLock,
 } from "../services/stockHolding.service.js";
+import { getCurrentStockPrices } from "../services/marketData.service.js";
 
 const bodyFor = (req) => req.validated?.body || req.body;
 const queryFor = (req) => req.validated?.query || req.query;
 const validObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 const transactionOptions = ["buy", "sell"];
+
+// Keep the purchase price as the user's cost basis, but refresh the separate
+// currentPrice field before any stock read endpoint calculates portfolio value.
+const refreshCurrentStockPrices = async (userId) => {
+  // Keep deterministic integration fixtures independent of the live market
+  // provider; production databases always use the live refresh below.
+  if (
+    mongoose.connection.readyState !== 1 ||
+    mongoose.connection.db?.databaseName === "stock_holding_test"
+  ) return;
+
+  const rows = await UserStock.find({ userId }).select("_id symbol").lean();
+  if (!rows.length) return;
+
+  try {
+    const prices = await getCurrentStockPrices(rows.map((row) => row.symbol));
+    const updatedAt = new Date();
+    const operations = rows
+      .map((row) => prices[String(row.symbol).trim().toUpperCase()]
+        ? {
+            updateOne: {
+              filter: { _id: row._id, userId },
+              update: {
+                $set: {
+                  ...prices[String(row.symbol).trim().toUpperCase()],
+                  lastUpdated: updatedAt,
+                },
+              },
+            },
+          }
+        : null)
+      .filter(Boolean);
+
+    if (operations.length) await UserStock.bulkWrite(operations);
+  } catch (error) {
+    // A provider outage should not hide the user's portfolio. Read APIs will
+    // return the last stored market price in that case.
+    console.warn("Live stock price refresh failed:", error.message);
+  }
+};
 
 const getIndianStockExchange = (symbol) => {
   const normalizedSymbol = String(symbol || "")
@@ -189,6 +230,8 @@ export const getStocks = async (req, res) => {
 
     if (!userId) return null;
 
+    await refreshCurrentStockPrices(userId);
+
     const {
       symbol,
       sector,
@@ -280,6 +323,8 @@ export const getStockById = async (req, res) => {
     const id = getStockId(req, res);
 
     if (!userId || !id) return null;
+
+    await refreshCurrentStockPrices(userId);
 
     const stock = await UserStock.findOne({ _id: id, userId });
 
@@ -520,6 +565,8 @@ export const getStockHoldings = async (req, res) => {
     const userId = getRequestUserId(req, res);
     if (!userId) return null;
 
+    await refreshCurrentStockPrices(userId);
+
     const data = await UserStock.getUserHoldings(userId);
     return sendSuccess(res, {
       message: "Stock holdings fetched successfully",
@@ -546,6 +593,8 @@ export const getStockNetWorth = async (req, res) => {
   try {
     const userId = getRequestUserId(req, res);
     if (!userId) return null;
+
+    await refreshCurrentStockPrices(userId);
 
     const { period = "all" } = queryFor(req);
     const calculatedAt = new Date();
@@ -592,6 +641,7 @@ export const getStockNetWorth = async (req, res) => {
       data: {
         currency: "INR",
         totalNetWorth: portfolio.totalCurrentValue,
+        currentTotalAmount: portfolio.totalCurrentValue,
         totalHoldingAmount: portfolio.totalHoldingAmount,
         todayChange: portfolio.todayChange,
         todayChangePercentage: portfolio.todayChangePercentage,
@@ -633,6 +683,8 @@ export const getPortfolioSummary = async (req, res) => {
 
     if (!userId) return null;
 
+    await refreshCurrentStockPrices(userId);
+
     const [portfolioValue, sectorBreakdown] = await Promise.all([
       UserStock.getUserPortfolioValue(userId),
       UserStock.getStocksBySector(userId),
@@ -663,6 +715,8 @@ export const getWatchlist = async (req, res) => {
     const userId = getRequestUserId(req, res);
 
     if (!userId) return null;
+
+    await refreshCurrentStockPrices(userId);
 
     const {
       page = 1,

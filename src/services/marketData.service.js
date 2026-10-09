@@ -528,6 +528,31 @@ const fetchDetailedQuoteBySymbol = async (symbol) =>
     { validateResult: false },
   );
 
+// Fetch the latest market price for portfolio symbols. This is intentionally
+// separate from the market-mover APIs because a user's holding may not be in
+// a movers list.
+export const getCurrentStockPrices = async (symbols = []) => {
+  const normalizedSymbols = [...new Set(
+    symbols
+      .map((symbol) => String(symbol || "").trim().toUpperCase())
+      .filter(Boolean),
+  )];
+
+  if (!normalizedSymbols.length) return {};
+
+  const quotes = await fetchDetailedQuotesBySymbols(normalizedSymbols);
+  return normalizedSymbols.reduce((prices, symbol) => {
+    const quote = quotes[symbol];
+    if (quote?.regularMarketPrice != null) {
+      prices[symbol] = {
+        currentPrice: quote.regularMarketPrice,
+        previousClose: quote.regularMarketPreviousClose ?? null,
+      };
+    }
+    return prices;
+  }, {});
+};
+
 const saveSnapshots = async (snapshots) => {
   if (!snapshots.length) return;
 
