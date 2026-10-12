@@ -1,3 +1,4 @@
+import { holdingMetrics } from "../src/utils/holdingMetrics.js";
 import UserStock from "../src/models/userStock.js";
 import assert from "node:assert/strict";
 import { calculateHolding } from "../src/services/stockHolding.service.js";
@@ -199,3 +200,17 @@ if (
 }
 
 console.log("Stock validation, output, alerts, and net-worth unit checks passed.");
+
+const weighted = UserStock.summarizeHoldings([
+  { quantity: 10, currentPrice: 110, previousClose: 100, currentValue: 1100, netInvestment: 800, todayChange: 100, transactionCount: 1, buyTransactions: 1, sellTransactions: 0 },
+  { quantity: 2, currentPrice: 450, previousClose: 500, currentValue: 900, netInvestment: 1000, todayChange: -100, transactionCount: 1, buyTransactions: 1, sellTransactions: 0 },
+]);
+assert.equal(weighted.todayChangePercentage, 0);
+assert.equal(weighted.todayChangeStatus, "neutral");
+assert.equal(weighted.totalProfitLossPercentage, 11.11);
+const free = holdingMetrics({ investedAmount: 0, currentValue: 10, todayChange: 10 });
+assert.equal(free.profitLossPercentage, null);
+assert.equal(free.todayChangePercentage, null);
+assert.equal(free.profitLossStatus, "profit");
+assert.equal(UserStock.summarizeHoldings([]).totalHoldingAmount, 0);
+assert.equal(UserStock.summarizeHoldings([]).profitLossStatus, "neutral");

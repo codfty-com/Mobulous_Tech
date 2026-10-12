@@ -528,6 +528,114 @@ const fetchDetailedQuoteBySymbol = async (symbol) =>
     { validateResult: false },
   );
 
+const fetchOneYearChartBySymbol = async (symbol) => {
+  const response = await axios.get(buildYahooChartUrl(symbol), {
+    params: { range: "1y", interval: "1d", includePrePost: false },
+    timeout: 12000,
+  });
+  const result = response.data?.chart?.result?.[0];
+  if (!result) throw new Error(`No one-year chart data returned for ${symbol}`);
+  const closes = (result.indicators?.adjclose?.[0]?.adjclose || result.indicators?.quote?.[0]?.close || [])
+    .filter((value) => typeof value === "number" && Number.isFinite(value));
+  const first = closes[0];
+  const last = closes.at(-1);
+  return {
+    period: "1y",
+    startPrice: first ?? null,
+    endPrice: last ?? null,
+    returnValue: first && last ? last - first : null,
+    returnPercentage: first && last ? ((last - first) / first) * 100 : null,
+    dataPoints: closes.length,
+    asOf: toDate(result.timestamp?.at(-1)),
+  };
+};
+
+export const getWatchlistStockDetails = async (symbol) => {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+  const [quote, oneYearReturn, profile] = await Promise.allSettled([
+    fetchDetailedQuoteBySymbol(normalizedSymbol),
+    fetchOneYearChartBySymbol(normalizedSymbol),
+    yahooFinance.quoteSummary(normalizedSymbol, {
+      modules: ["summaryProfile"],
+    }),
+  ]);
+
+  if (quote.status !== "fulfilled" || !quote.value) {
+    const error = new Error(`Unable to fetch stock details for ${normalizedSymbol}`);
+    error.statusCode = 502;
+    throw error;
+  }
+
+  const value = quote.value;
+  const stockData = {
+    symbol: normalizedSymbol,
+    name: value.longName || value.shortName || normalizedSymbol,
+    icon: null,
+    quantity: 0,
+    purchasePrice: null,
+    purchaseDate: null,
+    transactionDate: null,
+    transactionType: null,
+    notes: null,
+    tags: [],
+    watchlist: false,
+    alerts: { enabled: false, targetPrice: null, stopLoss: null },
+    currentPrice: toNumberOrNull(value.regularMarketPrice),
+    previousClose: toNumberOrNull(value.regularMarketPreviousClose),
+    exchange: value.fullExchangeName || value.exchange || null,
+    currency: value.currency || "INR",
+    marketState: value.marketState || "UNKNOWN",
+    priceChange: toNumberOrNull(value.regularMarketChange),
+    priceChangePercent: toNumberOrNull(value.regularMarketChangePercent),
+    volume: toNumberOrNull(value.regularMarketVolume),
+    fiftyTwoWeekHigh: toNumberOrNull(value.fiftyTwoWeekHigh),
+    fiftyTwoWeekLow: toNumberOrNull(value.fiftyTwoWeekLow),
+    marketCap: toNumberOrNull(value.marketCap),
+    dividendYield: toNumberOrNull(value.dividendYield),
+    peRatio: toNumberOrNull(value.trailingPE),
+    sector: value.sector || null,
+    fetchedAt: new Date(),
+  };
+
+  return {
+    stockData,
+    currentStatus: {
+      marketState: stockData.marketState,
+      price: stockData.currentPrice,
+      change: stockData.priceChange,
+      changePercent: stockData.priceChangePercent,
+      asOf: toDate(value.regularMarketTime),
+    },
+    oneYearReturn: oneYearReturn.status === "fulfilled" ? oneYearReturn.value : null,
+    companyDetails: profile.status === "fulfilled" ? profile.value?.summaryProfile || null : null,
+  };
+};
+
+// Fetch the latest market price for portfolio symbols. This is intentionally
+// separate from the market-mover APIs because a user's holding may not be in
+// a movers list.
+export const getCurrentStockPrices = async (symbols = []) => {
+  const normalizedSymbols = [...new Set(
+    symbols
+      .map((symbol) => String(symbol || "").trim().toUpperCase())
+      .filter(Boolean),
+  )];
+
+  if (!normalizedSymbols.length) return {};
+
+  const quotes = await fetchDetailedQuotesBySymbols(normalizedSymbols);
+  return normalizedSymbols.reduce((prices, symbol) => {
+    const quote = quotes[symbol];
+    if (quote?.regularMarketPrice != null) {
+      prices[symbol] = {
+        currentPrice: quote.regularMarketPrice,
+        previousClose: quote.regularMarketPreviousClose ?? null,
+      };
+    }
+    return prices;
+  }, {});
+};
+
 const saveSnapshots = async (snapshots) => {
   if (!snapshots.length) return;
 

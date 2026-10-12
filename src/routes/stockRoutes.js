@@ -4,6 +4,7 @@ import { validateRequest } from "../middlewares/validateRequest.js";
 import { searchIndianStocks } from "../controllers/indianStockMarket.controller.js";
 import {
   addStockSchema,
+  lookupStockSchema,
   updateStockSchema,
   getStocksQuerySchema,
   netWorthQuerySchema,
@@ -11,8 +12,10 @@ import {
   toggleWatchlistSchema,
   setAlertsSchema,
 } from "../validators/stock.validators.js";
+import { watchlistQuerySchema, watchlistSymbolSchema } from "../validators/watchlist.validators.js";
 import {
   addStock,
+  lookupStock,
   getStocks,
   getStockById,
   updateStock,
@@ -20,10 +23,13 @@ import {
   getPortfolioSummary,
   getStockHoldings,
   getStockNetWorth,
-  getWatchlist,
   bulkUpdatePrices,
   toggleWatchlist,
   setAlerts,
+  addToWatchlist,
+  getWatchlist,
+  removeFromWatchlist,
+  getHoldingWatchlist,
 } from "../controllers/stock.controller.js";
 
 const router = express.Router();
@@ -31,7 +37,7 @@ const router = express.Router();
 // GET /api/stocks?query=... is the public Indian-equity lookup used before a
 // transaction is created. Every portfolio endpoint remains JWT-protected.
 router.use("/stocks", (req, res, next) => {
-  if (req.method === "GET" && (req.query.query || req.query.search)) {
+  if (req.method === "GET" && req.path === "/" && (req.query.query || req.query.search)) {
     return searchIndianStocks(req, res, next);
   }
 
@@ -53,6 +59,9 @@ router.post("/stocks", validateRequest(addStockSchema), addStock);
  * @query   ?symbol=RELIANCE&sector=Energy&exchange=NSE&watchlist=true&page=1&limit=20&sortBy=symbol&sortOrder=asc
  */
 router.get("/stocks", validateRequest(getStocksQuerySchema), getStocks);
+
+// Exact, authenticated holding check when a search result is selected.
+router.get("/stocks/lookup", validateRequest(lookupStockSchema), lookupStock);
 
 /**
  * @route   GET /api/stocks/summary
@@ -81,11 +90,14 @@ router.get(
 
 /**
  * @route   GET /api/stocks/watchlist
- * @desc    Get user's watchlist stocks only
+ * @desc    Get search-selected watchlist stocks for the authenticated user
  * @access  Private (JWT required)
  * @query   ?page=1&limit=20&sortBy=lastUpdated&sortOrder=desc
  */
-router.get("/stocks/watchlist", getWatchlist);
+router.get("/stocks/watchlist", validateRequest(watchlistQuerySchema), getWatchlist);
+router.post("/stocks/watchlist", validateRequest(watchlistSymbolSchema), addToWatchlist);
+router.delete("/stocks/watchlist/:symbol", removeFromWatchlist);
+router.get("/stocks/holdings-watchlist", getHoldingWatchlist);
 
 /**
  * @route   PATCH /api/stocks/prices
