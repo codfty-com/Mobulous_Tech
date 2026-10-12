@@ -12,6 +12,7 @@ import {
   toggleWatchlistSchema,
   setAlertsSchema,
 } from "../validators/stock.validators.js";
+import { watchlistQuerySchema, watchlistSymbolSchema } from "../validators/watchlist.validators.js";
 import {
   addStock,
   lookupStock,
@@ -22,10 +23,13 @@ import {
   getPortfolioSummary,
   getStockHoldings,
   getStockNetWorth,
-  getWatchlist,
   bulkUpdatePrices,
   toggleWatchlist,
   setAlerts,
+  addToWatchlist,
+  getWatchlist,
+  removeFromWatchlist,
+  getHoldingWatchlist,
 } from "../controllers/stock.controller.js";
 
 const router = express.Router();
@@ -86,11 +90,14 @@ router.get(
 
 /**
  * @route   GET /api/stocks/watchlist
- * @desc    Get user's watchlist stocks only
+ * @desc    Get search-selected watchlist stocks for the authenticated user
  * @access  Private (JWT required)
  * @query   ?page=1&limit=20&sortBy=lastUpdated&sortOrder=desc
  */
-router.get("/stocks/watchlist", getWatchlist);
+router.get("/stocks/watchlist", validateRequest(watchlistQuerySchema), getWatchlist);
+router.post("/stocks/watchlist", validateRequest(watchlistSymbolSchema), addToWatchlist);
+router.delete("/stocks/watchlist/:symbol", removeFromWatchlist);
+router.get("/stocks/holdings-watchlist", getHoldingWatchlist);
 
 /**
  * @route   PATCH /api/stocks/prices

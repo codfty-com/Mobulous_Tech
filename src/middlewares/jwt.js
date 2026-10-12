@@ -8,7 +8,7 @@ import { sendError } from "../utils/http.js";
  * Sets req.user with decoded token payload
  */
 export const authenticateRequest = async (req, res, next) => {
-  if (env.skipJwtAuthForTesting) {
+  if (env.skipJwtAuthForTesting) { 
     req.user = {
       userId:
         req.get("x-test-user-id") ||

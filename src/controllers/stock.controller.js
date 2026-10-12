@@ -1,4 +1,5 @@
 import UserStock from "../models/userStock.js";
+import UserWatchlist from "../models/userWatchlist.js";
 import { AppError, sendSuccess, sendError } from "../utils/http.js";
 import mongoose from "mongoose";
 import { getStockNetWorthHistory } from "../services/stockNetWorth.service.js";
@@ -9,7 +10,7 @@ import {
   stockSymbolFilter,
   withStockSymbolLock,
 } from "../services/stockHolding.service.js";
-import { getCurrentStockPrices } from "../services/marketData.service.js";
+import { getCurrentStockPrices, getWatchlistStockDetails } from "../services/marketData.service.js";
 
 const bodyFor = (req) => req.validated?.body || req.body;
 const queryFor = (req) => req.validated?.query || req.query;
@@ -710,7 +711,7 @@ export const getPortfolioSummary = async (req, res) => {
  * Get watchlist stocks (GET)
  * GET /api/stocks/watchlist
  */
-export const getWatchlist = async (req, res) => {
+export const getHoldingWatchlist = async (req, res) => {
   try {
     const userId = getRequestUserId(req, res);
 
@@ -753,6 +754,69 @@ export const getWatchlist = async (req, res) => {
       statusCode: 500,
       message: "Failed to fetch watchlist",
     });
+  }
+};
+
+/**
+ * Save a stock selected from the public search API for the authenticated user.
+ * POST /api/stocks/watchlist { symbol: "RELIANCE.NS" }
+ */
+export const addToWatchlist = async (req, res) => {
+  try {
+    const userId = getRequestUserId(req, res);
+    const { symbol } = bodyFor(req);
+    if (!userId) return null;
+
+    const details = await getWatchlistStockDetails(symbol);
+    const watchlist = await UserWatchlist.findOneAndUpdate(
+      { userId, symbol: details.stockData.symbol },
+      { userId, symbol: details.stockData.symbol, ...details, lastUpdated: new Date() },
+      { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true },
+    );
+
+    return sendSuccess(res, {
+      statusCode: watchlist.createdAt?.getTime() === watchlist.updatedAt?.getTime() ? 201 : 200,
+      message: "Stock added to watchlist successfully",
+      data: watchlist,
+    });
+  } catch (error) {
+    console.error("Add watchlist error:", error);
+    return sendError(res, { statusCode: error.statusCode || 500, message: error.statusCode ? error.message : "Failed to add stock to watchlist" });
+  }
+};
+
+export const getWatchlist = async (req, res) => {
+  try {
+    const userId = getRequestUserId(req, res);
+    if (!userId) return null;
+    const { page = 1, limit = 20 } = queryFor(req);
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      UserWatchlist.find({ userId }).sort({ lastUpdated: -1 }).skip(skip).limit(limit).lean(),
+      UserWatchlist.countDocuments({ userId }),
+    ]);
+    return sendSuccess(res, {
+      message: "Watchlist fetched successfully",
+      data,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    console.error("Get watchlist error:", error);
+    return sendError(res, { statusCode: 500, message: "Failed to fetch watchlist" });
+  }
+};
+
+export const removeFromWatchlist = async (req, res) => {
+  try {
+    const userId = getRequestUserId(req, res);
+    const symbol = String(req.params.symbol || "").trim().toUpperCase();
+    if (!userId) return null;
+    const deleted = await UserWatchlist.findOneAndDelete({ userId, symbol });
+    if (!deleted) return sendError(res, { statusCode: 404, message: "Stock not found in watchlist" });
+    return sendSuccess(res, { message: "Stock removed from watchlist successfully", data: { symbol } });
+  } catch (error) {
+    console.error("Remove watchlist error:", error);
+    return sendError(res, { statusCode: 500, message: "Failed to remove stock from watchlist" });
   }
 };
 
