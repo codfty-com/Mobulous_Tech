@@ -506,6 +506,17 @@ export const lookupStockSchema = {
   },
 };
 
+export const stockSymbolParamsSchema = {
+  params(params) {
+    const symbol = typeof params.symbol === "string" ? params.symbol.trim().toUpperCase() : "";
+    const errors = [];
+    if (!symbol || symbol.length > 20 || !getIndianStockExchange(symbol)) {
+      errors.push("A valid Indian NSE (.NS) or BSE (.BO) stock symbol is required");
+    }
+    return buildResult(errors, { symbol });
+  },
+};
+
 export const getStocksQuerySchema = {
   query(query) {
     const errors = [];
