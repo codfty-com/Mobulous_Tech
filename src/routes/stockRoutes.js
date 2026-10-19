@@ -7,6 +7,7 @@ import {
   lookupStockSchema,
   updateStockSchema,
   getStocksQuerySchema,
+  stockSymbolParamsSchema,
   netWorthQuerySchema,
   bulkUpdatePricesSchema,
   toggleWatchlistSchema,
@@ -17,6 +18,7 @@ import {
   addStock,
   lookupStock,
   getStocks,
+  getStockBySymbol,
   getStockById,
   updateStock,
   deleteStock,
@@ -59,6 +61,17 @@ router.post("/stocks", validateRequest(addStockSchema), addStock);
  * @query   ?symbol=RELIANCE&sector=Energy&exchange=NSE&watchlist=true&page=1&limit=20&sortBy=symbol&sortOrder=asc
  */
 router.get("/stocks", validateRequest(getStocksQuerySchema), getStocks);
+
+/**
+ * @route   GET /api/stocks/symbol/:symbol
+ * @desc    Get one authenticated user's stock details and buy/sell transactions
+ * @access  Private (JWT required)
+ */
+router.get(
+  "/stocks/symbol/:symbol",
+  validateRequest(stockSymbolParamsSchema),
+  getStockBySymbol,
+);
 
 // Exact, authenticated holding check when a search result is selected.
 router.get("/stocks/lookup", validateRequest(lookupStockSchema), lookupStock);

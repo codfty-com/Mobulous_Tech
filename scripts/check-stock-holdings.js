@@ -77,6 +77,11 @@ try {
   assert.equal(listing.body.data[0].quantity, 15);
   assert.equal(listing.body.summary.totalTransactions, 2);
   assert.equal(listing.body.summary.totalInvestment, 1800);
+  const bySymbol = await request("GET", "/symbol/reliance.ns");
+  assert.equal(bySymbol.status, 200);
+  assert.equal(bySymbol.body.data.symbol, "RELIANCE.NS");
+  assert.equal(bySymbol.body.data.transactions.length, 2);
+  assert.equal((await request("GET", "/symbol/RELIANCE.NS", undefined, otherToken)).status, 404);
   const other = await request("POST", "", payload, otherToken);
   assert.equal(other.status, 201);
   assert.notEqual(other.body.data._id, id);

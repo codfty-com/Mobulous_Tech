@@ -315,6 +315,43 @@ export const getStocks = async (req, res) => {
 };
 
 /**
+ * Get one authenticated user's stock details by exact symbol (GET)
+ * GET /api/stocks/symbol/:symbol
+ */
+export const getStockBySymbol = async (req, res) => {
+  try {
+    const userId = getRequestUserId(req, res);
+    if (!userId) return null;
+
+    const { symbol } = req.validated?.params || req.params;
+    await refreshCurrentStockPrices(userId);
+
+    const stock = await UserStock.findOne({
+      userId,
+      symbol: { $regex: `^${String(symbol).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" },
+    });
+
+    if (!stock) {
+      return sendError(res, {
+        statusCode: 404,
+        message: `No stock details found for ${symbol}`,
+      });
+    }
+
+    return sendSuccess(res, {
+      message: "Stock details fetched successfully",
+      data: stock,
+    });
+  } catch (error) {
+    console.error("Get stock by symbol error:", error);
+    return sendError(res, {
+      statusCode: 500,
+      message: "Failed to fetch stock details",
+    });
+  }
+};
+
+/**
  * Get single stock by ID (GET)
  * GET /api/stocks/:id
  */
