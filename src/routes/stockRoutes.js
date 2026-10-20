@@ -110,6 +110,11 @@ router.get(
 router.get("/stocks/watchlist", validateRequest(watchlistQuerySchema), getWatchlist);
 router.post("/stocks/watchlist", validateRequest(watchlistSymbolSchema), addToWatchlist);
 router.delete("/stocks/watchlist/:symbol", removeFromWatchlist);
+// Backward-compatible alias for clients that use the wishlist terminology.
+// Keep these routes before /stocks/:id so "wishlist" is not treated as a stock ID.
+router.get("/stocks/wishlist", validateRequest(watchlistQuerySchema), getWatchlist);
+router.post("/stocks/wishlist", validateRequest(watchlistSymbolSchema), addToWatchlist);
+router.delete("/stocks/wishlist/:symbol", removeFromWatchlist);
 router.get("/stocks/holdings-watchlist", getHoldingWatchlist);
 
 /**

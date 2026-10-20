@@ -16,7 +16,7 @@ const trimTrailingPathWhitespace = (url) => {
 
   return `${pathname.replace(/(?:%0A|%0D|%09|%20|\s)+$/gi, "")}${query}`;
 };
-
+///test
 app.use((req, res, next) => {
   req.url = trimTrailingPathWhitespace(req.url);
   next();
@@ -110,5 +110,3 @@ app.use((err, req, res, next) => {
 });
 
 export default app;
-
-
