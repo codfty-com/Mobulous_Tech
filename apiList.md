@@ -368,11 +368,12 @@ Only two public news feeds are available. Both accept optional `count` (default 
 - Local URL: `http://localhost:4500/api/mutual-funds`
 - Deployed URL: `https://mobulous-tech.vercel.app/api/mutual-funds`
 - Payload: Not required
+- Authentication: Not required when `query` or `search` is supplied. The same URL without either query parameter is the authenticated portfolio list endpoint described below.
 - Query params:
 
 | Parameter | Required | Default | Example |
 |---|---:|---|---|
-| `query` or `search` | No | empty search | `parag parikh` |
+| `query` or `search` | Yes | â€” | `parag parikh` |
 | `limit` | No | `50`, max `100` | `10` |
 | `forceRefresh` | No | `false` | `true` |
 
@@ -715,19 +716,28 @@ No endpoint is currently configured for these areas:
 
 ---
 
-## 66. Manual Mutual Fund Holdings
+## 66. Mutual Fund Portfolio Flow
 
-These endpoints manage a user's manually entered mutual-fund holdings. They are separate from the public mutual-fund scheme/NAV lookup endpoints, and all require `Authorization: Bearer <JWT_TOKEN>`.
+Start with the public search API above, take its `schemeCode`, then use these authenticated endpoints with `Authorization: Bearer <JWT_TOKEN>`. Buy and sell requests are recorded as transactions under one holding per scheme; a sell cannot exceed units owned on that date. There are deliberately no mutual-fund watchlist APIs.
 
-| Action | Method | URL |
+Base URLs: `http://localhost:4500/api` and `https://mobulous-tech.vercel.app/api`.
+
+| Action | Method | Path |
 |---|---|---|
-| Add holding | `POST` | `/api/mutual-fund-holdings` |
-| List holdings | `GET` | `/api/mutual-fund-holdings` |
-| Get holding | `GET` | `/api/mutual-fund-holdings/:id` |
-| Update holding | `PATCH` or `PUT` | `/api/mutual-fund-holdings/:id` |
-| Delete holding | `DELETE` | `/api/mutual-fund-holdings/:id` |
+| Check an existing selected scheme | `GET` | `/mutual-funds/lookup?schemeCode=:schemeCode` |
+| Add a buy or sell transaction | `POST` | `/mutual-funds` |
+| List transaction-backed scheme positions | `GET` | `/mutual-funds` |
+| Get a holding and its transactions | `GET` | `/mutual-funds/:id` |
+| Get a holding by MFAPI scheme code | `GET` | `/mutual-funds/scheme/:schemeCode` |
+| Get only open (positive-unit) holdings | `GET` | `/mutual-funds/holdings` |
+| Get portfolio summary | `GET` | `/mutual-funds/summary` |
+| Correct holding metadata or one transaction | `PATCH` or `PUT` | `/mutual-funds/:id` |
+| Update manual NAVs in bulk | `PATCH` | `/mutual-funds/navs` |
+| Delete a holding | `DELETE` | `/mutual-funds/:id` |
 
-Required add payload fields are `fundName`, plus either `units`/`quantity` and `investedAmount`, or `units`/`quantity` and `price`/`purchaseNav` so the server can calculate `investedAmount`. Optional fields are `schemeCode`, `folioNumber`, `icon`, `purchaseNav`, `currentNav`, `transactionDate`, `transactionType`, `purchaseDate`, `fundHouse`, `category`, `notes`, and `tags`.
+`/mutual-fund-holdings` and `/mutual-fund-holdings/:id` remain authenticated compatibility aliases for the add/list/get/update/delete operations.
+
+Required add payload fields are `schemeCode`, `fundName`, `units` (or `quantity`), and `purchaseNav` (or `price`). Optional fields are `folioNumber`, `icon`, `currentNav`, `previousNav`, `transactionDate`, `transactionType`, `fundHouse`, `category`, `notes`, and `tags`.
 
 Example add payload:
 
@@ -744,11 +754,7 @@ Example add payload:
 }
 ```
 
-The response includes calculated `totalValue` as the invested amount. In the example above, `investedAmount` is calculated as `quantity * price`.
-
-List holdings query params: `search`, `transactionType=buy|sell`, `page`, `limit`, and `sortOrder=asc|desc`.
-
-Update payload: send any non-empty subset of the add fields. `quantity` aliases `units`, `price` aliases `purchaseNav`, and `transactionDate` aliases `purchaseDate`. The `GET`, `PATCH`/`PUT`, and `DELETE` `:id` routes use the holding MongoDB `_id` returned by the add/list APIs. Delete has no request payload.
+The response calculates `investedAmount` as the remaining average-cost basis. For a second or later transaction, post to the same endpoint with `transactionType: "buy"` or `"sell"`; the API returns the updated consolidated holding. To edit one of multiple transactions, include its `transactionId` from the holding's `transactions` array. List query params are `search`, `schemeCode`, `transactionType=buy|sell`, `page`, `limit`, `sortBy`, and `sortOrder=asc|desc`.
 
 ---
 
@@ -814,10 +820,17 @@ This index is the authoritative list of primary `/api` routes implemented in `sr
 | `GET` | `/api/indian-market/top-99-stocks/:period` | Public | `:period` is `daily`, `weekly`, or `monthly`; optional `forceRefresh=true` |
 | `GET` | `/api/market-news` | Public | None |
 | `GET` | `/api/market-news/global` | Public | None |
-| `GET` | `/api/mutual-funds` | Public | None |
-| `GET` | `/api/mutual-fund-data` | Public | None |
-| `GET` | `/api/mutual-fund-data/:schemeCode/history` | Public | None |
-| `GET` | `/api/mutual-fund-data/:schemeCode` | Public | None |
+| `GET` | `/api/mutual-funds?query=...` | Public | Mutual-fund scheme search |
+| `POST`, `GET` | `/api/mutual-funds` | User | Add transaction for `POST`; omit search query for portfolio list |
+| `GET` | `/api/mutual-funds/lookup` | User | Required `schemeCode` |
+| `GET` | `/api/mutual-funds/scheme/:schemeCode` | User | None |
+| `GET` | `/api/mutual-funds/summary`, `/api/mutual-funds/holdings` | User | None |
+| `PATCH` | `/api/mutual-funds/navs` | User | `updates` array |
+| `GET`, `DELETE` | `/api/mutual-funds/:id` | User | None |
+| `PATCH`, `PUT` | `/api/mutual-funds/:id` | User | Partial transaction/holding object |
+| `GET` | `/api/mutual-fund-data` | User | None |
+| `GET` | `/api/mutual-fund-data/:schemeCode/history` | User | None |
+| `GET` | `/api/mutual-fund-data/:schemeCode` | User | None |
 | `GET` | `/api/stocks?query=...` | Public | Indian NSE/BSE equity search; `region=IN`, `limit=1..25` |
 | `POST`, `GET` | `/api/stocks` | User | Add Indian-stock transaction for `POST`; omit `query` for portfolio `GET` |
 | `GET` | `/api/stocks/summary` | User | None |
