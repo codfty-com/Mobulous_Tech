@@ -335,7 +335,9 @@ Optional query: `forceRefresh=true` bypasses the short-lived cache.
 These routes use the free MFapi.in provider. No API key is required. Results are cached in MongoDB like market data.
 
 ### `GET /api/mutual-funds`
-Search mutual fund schemes by name. Use this for dropdowns/search screens.
+Public mutual-fund scheme search for dropdowns/search screens. `query` (or
+`search`) is required; without it, this path is the authenticated mutual-fund
+portfolio list endpoint.
 
 **Query Parameters:**
 
