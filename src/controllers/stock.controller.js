@@ -326,10 +326,14 @@ export const getStockBySymbol = async (req, res) => {
     const { symbol } = req.validated?.params || req.params;
     await refreshCurrentStockPrices(userId);
 
-    const stock = await UserStock.findOne({
-      userId,
-      symbol: { $regex: `^${String(symbol).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" },
-    });
+    const normalizedSymbol = String(symbol).trim().toUpperCase();
+    const [stock, watchlistEntry] = await Promise.all([
+      UserStock.findOne({
+        userId,
+        symbol: { $regex: `^${String(symbol).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" },
+      }),
+      UserWatchlist.exists({ userId, symbol: normalizedSymbol }),
+    ]);
 
     if (!stock) {
       return sendError(res, {
@@ -340,7 +344,13 @@ export const getStockBySymbol = async (req, res) => {
 
     return sendSuccess(res, {
       message: "Stock details fetched successfully",
-      data: stock,
+      // `watchlist` exists on legacy holding records. `inWatchlist` is the
+      // canonical client-facing field and also covers entries added through
+      // POST /api/stocks/watchlist.
+      data: {
+        ...stock.toObject(),
+        inWatchlist: Boolean(watchlistEntry || stock.watchlist),
+      },
     });
   } catch (error) {
     console.error("Get stock by symbol error:", error);
