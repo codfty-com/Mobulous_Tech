@@ -3,7 +3,8 @@ import UserStock from "../src/models/userStock.js";
 import assert from "node:assert/strict";
 import { calculateHolding } from "../src/services/stockHolding.service.js";
 import axios from "axios";
-import { getStockNetWorth, setAlerts } from "../src/controllers/stock.controller.js";
+import { getStockBySymbol, getStockNetWorth, setAlerts } from "../src/controllers/stock.controller.js";
+import UserWatchlist from "../src/models/userWatchlist.js";
 import { getStockNetWorthHistory } from "../src/services/stockNetWorth.service.js";
 import {
   addStockSchema,
@@ -164,6 +165,28 @@ if (
   "alerts.enabled" in capturedAlertUpdate
 ) {
   throw new Error("Partial alert update incorrectly changed the enabled state");
+}
+
+const originalFindOne = UserStock.findOne;
+const originalWatchlistExists = UserWatchlist.exists;
+UserStock.findOne = async () => ({
+  symbol: "RELIANCE.NS",
+  watchlist: false,
+  toObject: () => ({ symbol: "RELIANCE.NS", watchlist: false }),
+});
+UserWatchlist.exists = async () => ({ _id: "000000000000000000000003" });
+const stockDetailResponse = makeResponse();
+await getStockBySymbol(
+  { user: { userId }, validated: { params: { symbol: "RELIANCE.NS" } } },
+  stockDetailResponse,
+);
+UserStock.findOne = originalFindOne;
+UserWatchlist.exists = originalWatchlistExists;
+if (
+  stockDetailResponse.statusCode !== 200 ||
+  stockDetailResponse.body.data.inWatchlist !== true
+) {
+  throw new Error("Stock details endpoint did not return the inWatchlist flag");
 }
 
 const originalGetUserPortfolioValue = UserStock.getUserPortfolioValue;
